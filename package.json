@@ -1,0 +1,25 @@
+{
+  "name": "deskhud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "NODE_ENV=production bun src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "oxlint && oxfmt --check",
+    "format": "oxlint --fix && oxfmt"
+  },
+  "dependencies": {
+    "@elysiajs/html": "^1.4.2",
+    "@kitajs/html": "^4.2.13",
+    "dayjs": "^1.11.23",
+    "elysia": "^1.4.30"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "typescript": "^7.0.2"
+  }
+}
