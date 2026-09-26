@@ -18,29 +18,48 @@ const patchElements = (elements: string) =>
       .join("\n")}\n\n`,
   )
 
+/** Stale if the latest fetch failed; `data` is then the Last known good. */
+type Entry = { data: unknown; fetchedAt: number; stale: boolean }
+
+const formatAge = (ms: number) => {
+  const minutes = Math.floor(ms / 60_000)
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`
+}
+
 export const createHub = ({ modules, effects }: HubOptions) => {
-  const store = new Map<string, unknown>()
+  const store = new Map<string, Entry>()
   const sentModules = new Map<string, string>()
   const clients = new Set<ReadableStreamDefaultController<Uint8Array>>()
   let sentLayout = ""
 
   const priorityOf = (module: Module<unknown>) =>
-    module.effectivePriority?.(store.get(module.id)) ?? module.priority
+    module.effectivePriority?.(store.get(module.id)?.data) ?? module.priority
 
   const shownModules = (now = new Date()) =>
     modules
       .filter(
         (module) =>
           store.has(module.id) &&
-          (module.visible?.(store.get(module.id), now) ?? true),
+          (module.visible?.(store.get(module.id)?.data, now) ?? true),
       )
       .toSorted((a, b) => priorityOf(b) - priorityOf(a))
 
-  const renderModule = async (module: Module<unknown>) => (
-    <section id={`module-${module.id}`} class={`col-span-${module.span}`}>
-      {await module.render(store.get(module.id))}
-    </section>
-  )
+  const renderModule = async (module: Module<unknown>) => {
+    const entry = store.get(module.id)
+    return (
+      <section
+        id={`module-${module.id}`}
+        class={`relative col-span-${module.span}`}
+      >
+        {await module.render(entry?.data)}
+        {entry?.stale && (
+          <p class="absolute -top-2 right-2 rounded bg-amber-400 px-1 text-xs text-black">
+            ⚠ {formatAge(Date.now() - entry.fetchedAt)} ago
+          </p>
+        )}
+      </section>
+    )
+  }
 
   const renderGrid = async () => (
     <main id="grid" class="grid grid-flow-dense grid-cols-4 gap-3">
@@ -61,30 +80,46 @@ export const createHub = ({ modules, effects }: HubOptions) => {
 
   // Order or visibility changes re-send the whole grid; otherwise only the changed Module.
   const publish = async (module: Module<unknown>) => {
-    const shown = shownModules()
-    const layout = shown.map(({ id }) => id).join()
-    const rendered = shown.includes(module) ? await renderModule(module) : ""
+    try {
+      const shown = shownModules()
+      const layout = shown.map(({ id }) => id).join()
+      const rendered = shown.includes(module) ? await renderModule(module) : ""
 
-    if (layout !== sentLayout) broadcast(await renderGrid())
-    else if (rendered !== sentModules.get(module.id)) broadcast(rendered)
+      if (layout !== sentLayout) broadcast(await renderGrid())
+      else if (rendered !== sentModules.get(module.id)) broadcast(rendered)
 
-    sentLayout = layout
-    sentModules.set(module.id, rendered)
+      sentLayout = layout
+      sentModules.set(module.id, rendered)
+    } catch (error) {
+      console.error(`module ${module.id} publish failed`, error)
+    }
   }
 
   for (const module of modules) {
     const refresh = async () => {
       try {
-        store.set(module.id, await module.fetch())
-        await publish(module)
+        store.set(module.id, {
+          data: await module.fetch(),
+          fetchedAt: Date.now(),
+          stale: false,
+        })
       } catch (error) {
-        console.error(`module ${module.id} refresh failed`, error)
+        console.error(`module ${module.id} fetch failed`, error)
+        const entry = store.get(module.id)
+        if (entry) entry.stale = true
       }
+      await publish(module)
       // Chained rather than setInterval so a slow fetch never overlaps the next one.
       setTimeout(refresh, module.schedule.every).unref()
     }
     refresh()
   }
+
+  // Keeps Stale ages current between fetches.
+  setInterval(() => {
+    for (const module of modules)
+      if (store.get(module.id)?.stale) publish(module)
+  }, 60_000).unref()
 
   return new Elysia()
     .use(html())

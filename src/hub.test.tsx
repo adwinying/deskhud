@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test"
+import { expect, setSystemTime, spyOn, test } from "bun:test"
 import { createHub } from "@/hub"
 import { defineModule } from "@/module"
 
@@ -83,4 +83,43 @@ test("Hub serves visible Modules and streams patches", async () => {
   expect(patch).not.toContain("high module")
 
   await reader.cancel()
+})
+
+test("failing Source keeps Last known good and marks the Module Stale", async () => {
+  const consoleError = spyOn(console, "error").mockImplementation(() => {})
+  let failing = false
+  const hub = createHub({
+    modules: [
+      defineModule({
+        id: "flaky",
+        span: 4,
+        priority: 1,
+        schedule: { every: 5 },
+        fetch: () => {
+          if (failing) throw new Error("source down")
+          return "good"
+        },
+        render: (value) => <p>reading {value}</p>,
+      }),
+    ],
+    effects,
+  })
+  const page = () =>
+    hub.handle(new Request("http://localhost/")).then((r) => r.text())
+
+  await Bun.sleep(50)
+  expect(await page()).not.toContain("⚠")
+
+  failing = true
+  await Bun.sleep(50)
+  setSystemTime(Date.now() + 12 * 60_000)
+  const stale = await page()
+  setSystemTime()
+  expect(stale).toContain("reading good")
+  expect(stale).toContain("⚠ 12m ago")
+
+  failing = false
+  await Bun.sleep(50)
+  expect(await page()).not.toContain("⚠")
+  consoleError.mockRestore()
 })

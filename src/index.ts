@@ -1,13 +1,14 @@
 import dayjs from "dayjs"
 import { createHub } from "@/hub"
 import { clock } from "@/modules/clock"
+import { weather } from "@/modules/weather"
 
 const notImplemented = async () => {
   throw new Error("not implemented")
 }
 
 const hub = createHub({
-  modules: [clock],
+  modules: [clock, weather],
   effects: {
     ssh: { open: notImplemented },
     ha: { callService: notImplemented },

@@ -47,7 +47,7 @@ export const Page = ({ children }: { children: JSX.Element }) => (
         // Screen wake: start from the top in case the page was left scrolled.
         data-on:visibilitychange__document="!document.hidden && window.scrollTo(0, 0)"
       >
-        <div class="mx-auto max-w-lg p-3">{children}</div>
+        <div class="mx-auto max-w-sm p-3">{children}</div>
       </body>
     </html>
   </>
