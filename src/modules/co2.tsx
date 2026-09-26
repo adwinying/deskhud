@@ -27,7 +27,7 @@ export const co2 = (sensorUrl: string) =>
     },
     visible: (ppm) => ppm > threshold,
     render: (ppm) => (
-      <p class="flex items-center justify-center gap-2 rounded-xl bg-red-600 p-2 font-semibold text-white">
+      <p class="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 font-semibold text-white">
         {icon(TriangleAlert)} CO₂ {ppm.toLocaleString()}ppm — 換気してください
       </p>
     ),

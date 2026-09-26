@@ -1,5 +1,9 @@
 export type Effects = {
-  ssh: { open: (url: string) => Promise<void> }
+  ssh: {
+    open: (url: string) => Promise<void>
+    /** Launches or focuses an app the forced command allows. */
+    activate: (app: "t3code") => Promise<void>
+  }
   ha: {
     /** Resolves once HA reports the target entity's state changed. */
     callService: (

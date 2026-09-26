@@ -12,6 +12,7 @@ test("unset groups leave their feature off", () => {
     ticktick: undefined,
     googleHealth: undefined,
     co2: undefined,
+    t3code: [],
     ssh: undefined,
   })
 })
@@ -40,4 +41,19 @@ test("account lists parse into labelled entries", () => {
   })
   expect(() => parseEnv({ CLAUDE_TOKENS: "sk-ant-oat01-a" })).toThrow()
   expect(() => parseEnv({ CODEX_AUTHS: "a:/x,a:/y" })).toThrow()
+})
+
+test("T3 Code environments parse into url and token", () => {
+  expect(
+    parseEnv({
+      T3CODE_ENVIRONMENTS:
+        "mayonaca:https://a.t3coderelay.com|tok.en_1,crefil:https://b.t3coderelay.com|tok-2",
+    }).t3code,
+  ).toEqual([
+    { label: "mayonaca", url: "https://a.t3coderelay.com", token: "tok.en_1" },
+    { label: "crefil", url: "https://b.t3coderelay.com", token: "tok-2" },
+  ])
+  expect(() =>
+    parseEnv({ T3CODE_ENVIRONMENTS: "mayonaca:https://a.t3coderelay.com" }),
+  ).toThrow()
 })

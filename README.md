@@ -42,6 +42,10 @@ GOOGLE_HEALTH_CLIENT_SECRET=GOCSPX-...
 GOOGLE_HEALTH_REFRESH_TOKEN=1//...
 # CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm
 CO2_SENSOR_URL=http://192.168.5.5
+# Threads: a banner when a T3 Code thread needs attention, as label:url|token per machine. Each machine's
+# T3 Connect URL and its own token from `t3 auth session issue --label deskhud --token-only` (tokens don't
+# carry across machines; admin scope; revoke with `t3 auth session revoke`)
+T3CODE_ENVIRONMENTS=mayonaca:https://prod-....t3coderelay.com|...,crefil:https://prod-....t3coderelay.com|...
 ```
 
 `src/env.ts` validates these at startup. Omit a whole group to disable its feature; a partial group fails startup.
@@ -96,7 +100,7 @@ Tap actions open URLs on the Workstation over SSH, with a key that can only run 
 3. Append one line to `~/.ssh/authorized_keys` on the Workstation, replacing the key with `id_ed25519.pub`:
 
    ```
-   restrict,from="<NAS tailnet IP>",command="case \"$SSH_ORIGINAL_COMMAND\" in https://*) exec /usr/bin/open \"$SSH_ORIGINAL_COMMAND\";; *) exit 1;; esac" ssh-ed25519 AAAA... deskhud
+   restrict,from="<NAS tailnet IP>",command="case \"$SSH_ORIGINAL_COMMAND\" in https://*) exec /usr/bin/open \"$SSH_ORIGINAL_COMMAND\";; t3code) exec /usr/bin/open -b com.t3tools.t3code;; *) exit 1;; esac" ssh-ed25519 AAAA... deskhud
    ```
 
    `open` needs a logged-in GUI session.
@@ -109,7 +113,7 @@ Tap actions open URLs on the Workstation over SSH, with a key that can only run 
 
    Don't enable Tailscale SSH on the Workstation: it ignores `authorized_keys`.
 
-5. Check from the NAS: `docker exec deskhud ssh -i /secrets/ssh/id_ed25519 -o UserKnownHostsFile=/secrets/ssh/known_hosts adwin@mayonaca https://example.com` opens the page; any non-`https://` command fails.
+5. Check from the NAS: `docker exec deskhud ssh -i /secrets/ssh/id_ed25519 -o UserKnownHostsFile=/secrets/ssh/known_hosts adwin@mayonaca https://example.com` opens the page, `t3code` brings T3 Code to the front, and anything else fails.
 
 ### 5. AI usage
 

@@ -8,6 +8,7 @@ import { co2 } from "@/modules/co2"
 import { light } from "@/modules/light"
 import { sleep } from "@/modules/sleep"
 import { tasks } from "@/modules/tasks"
+import { threads } from "@/modules/threads"
 import { trains } from "@/modules/trains"
 import { claudeUsage, codexUsage } from "@/modules/usage"
 import { weather } from "@/modules/weather"
@@ -26,8 +27,8 @@ const ha: Effects["ha"] = env.ha
       },
     }
 
-// The Workstation's forced command runs `open` on the URL (ADR 0002).
-const openOnWorkstation = async (url: string) => {
+// The Workstation's forced command runs `open` on an https URL or a fixed app name (ADR 0002).
+const runOnWorkstation = async (command: string) => {
   // Never fall back to the user's own keys: only the forced-command key may run.
   if (!env.ssh)
     throw new Error("WORKSTATION_SSH, SSH_KEY and SSH_KNOWN_HOSTS must be set")
@@ -50,7 +51,7 @@ const openOnWorkstation = async (url: string) => {
       "-o",
       `UserKnownHostsFile=${SSH_KNOWN_HOSTS}`,
       WORKSTATION_SSH,
-      url,
+      command,
     ],
     // Killed when the Hub gives up, so a late `open` can't follow the shown error.
     { stdout: "ignore", stderr: "pipe", timeout: tapTimeout },
@@ -68,6 +69,7 @@ const hub = createHub({
     trains,
     light,
     ...(env.co2 ? [co2(env.co2)] : []),
+    ...(env.t3code.length > 0 ? [threads(env.t3code)] : []),
     ...(env.ticktick ? [tasks(env.ticktick)] : []),
     ...(env.googleHealth
       ? [
@@ -81,7 +83,7 @@ const hub = createHub({
     ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
     ...env.codex.map(({ label, value }) => codexUsage(label, value)),
   ],
-  effects: { ssh: { open: openOnWorkstation }, ha },
+  effects: { ssh: { open: runOnWorkstation, activate: runOnWorkstation }, ha },
 })
 
 // Apache Common Log Format with numeric local time: 127.0.0.1 - - [2026-09-26 16:00:00] "GET / HTTP/1.1" 200 1234

@@ -4,7 +4,7 @@ import { defineModule, type PushSource } from "@/module"
 import { light, lightEntity } from "@/modules/light"
 
 const effects = {
-  ssh: { open: async () => {} },
+  ssh: { open: async () => {}, activate: async () => {} },
   ha: { callService: async () => {}, watch: () => {} },
 }
 
@@ -192,6 +192,7 @@ test("tap runs the Module's Tap action and holds Pending until it settles", asyn
     effects: {
       ...effects,
       ssh: {
+        ...effects.ssh,
         open: (url) => {
           opened.push(url)
           return new Promise((resolve, reject) => {
