@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { defineModule } from "@/module"
 
 // Yahoo!路線情報 diainfo IDs, from https://transit.yahoo.co.jp/diainfo/area/4
@@ -10,11 +11,15 @@ const lines = {
   総武線快速: 61,
 }
 
-type Notice = { status: string; message: string; normal: boolean }
+const Notice = z.object({
+  status: z.string().trim().min(1),
+  message: z.string(),
+  normal: z.boolean(),
+})
 
 // #mdServiceStatus holds dt (status) / dd (message) pairs; dd.normal marks 平常運転.
 const parse = (html: string) => {
-  const notices: Notice[] = []
+  const notices: z.input<typeof Notice>[] = []
   const current = () => notices.at(-1)
   new HTMLRewriter()
     .on("#mdServiceStatus dt", {
@@ -49,15 +54,20 @@ const scrape = async (line: string, id: number) => {
   })
   if (!response.ok)
     throw new Error(`Yahoo!路線情報 responded ${response.status} for ${line}`)
-  const notices = parse(await response.text())
-  if (!notices.length || notices.some(({ status }) => !status.trim()))
-    throw new Error(`unexpected Yahoo!路線情報 markup for ${line}`)
+  const notices = z
+    .array(Notice)
+    .min(1)
+    .safeParse(parse(await response.text()))
+  if (!notices.success)
+    throw new Error(`unexpected Yahoo!路線情報 markup for ${line}`, {
+      cause: notices.error,
+    })
 
-  return notices
+  return notices.data
     .filter(({ normal }) => !normal)
     .map(({ status, message }) => ({
       line,
-      status: status.trim(),
+      status,
       // Drops the trailing "（9月26日 16時30分掲載）".
       message: message.replace(/（[^（]*掲載）$/, "").trim(),
     }))

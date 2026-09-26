@@ -33,6 +33,8 @@ HA_URL=http://homeassistant.lan:8123
 HA_TOKEN=eyJ...
 ```
 
+`src/env.ts` validates these at startup. Omit a whole group to disable its feature; a partial group fails startup.
+
 Add each Module's secrets here as Modules that need them land.
 
 ### 2. Run the container

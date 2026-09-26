@@ -1,22 +1,29 @@
+import { z } from "zod"
 import type { Effects, PushSource } from "@/module"
 
-// https://developers.home-assistant.io/docs/api/websocket
-type Message =
-  | { type: "auth_required" | "auth_ok" | "pong" }
-  | { type: "auth_invalid"; message: string }
-  | {
-      type: "result"
-      id: number
-      success: boolean
-      error?: { message: string }
-    }
-  | { type: "event"; event: EntitiesEvent }
-
 // subscribe_entities' compressed format: `a` adds entities (sent on subscribe), `c` diffs them.
-type EntitiesEvent = {
-  a?: Record<string, { s: string }>
-  c?: Record<string, { "+"?: { s?: string } }>
-}
+const EntitiesEvent = z.object({
+  a: z.record(z.string(), z.object({ s: z.string() })).default({}),
+  c: z
+    .record(
+      z.string(),
+      z.object({ "+": z.object({ s: z.string().optional() }).optional() }),
+    )
+    .default({}),
+})
+
+// https://developers.home-assistant.io/docs/api/websocket
+const Message = z.discriminatedUnion("type", [
+  z.object({ type: z.enum(["auth_required", "auth_ok", "pong"]) }),
+  z.object({ type: z.literal("auth_invalid"), message: z.string() }),
+  z.object({
+    type: z.literal("result"),
+    id: z.number(),
+    success: z.boolean(),
+    error: z.object({ message: z.string() }).optional(),
+  }),
+  z.object({ type: z.literal("event"), event: EntitiesEvent }),
+])
 
 const reconnectDelay = 5_000
 // Detects a silently dead connection, which would never fire `close`.
@@ -70,7 +77,7 @@ export const connectHomeAssistant = ({
       waiters.add(changed)
     })
 
-  const receive = ({ a = {}, c = {} }: EntitiesEvent) => {
+  const receive = ({ a, c }: z.infer<typeof EntitiesEvent>) => {
     for (const [entityId, { s }] of Object.entries(a))
       sources.get(entityId)?.next(s)
     for (const [entityId, diff] of Object.entries(c)) {
@@ -111,7 +118,14 @@ export const connectHomeAssistant = ({
     )
     socket.addEventListener("message", ({ data }) => {
       alive = true
-      const message: Message = JSON.parse(String(data))
+      const parsed = Message.safeParse(JSON.parse(String(data)))
+      if (!parsed.success)
+        return drop(
+          new Error("unexpected Home Assistant message", {
+            cause: parsed.error,
+          }),
+        )
+      const message = parsed.data
       switch (message.type) {
         case "auth_required":
           socket.send(JSON.stringify({ type: "auth", access_token: token }))

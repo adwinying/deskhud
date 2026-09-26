@@ -1,4 +1,5 @@
 import dayjs from "dayjs"
+import { env } from "@/env"
 import { connectHomeAssistant } from "@/ha"
 import { createHub, tapTimeout } from "@/hub"
 import type { Effects } from "@/module"
@@ -7,28 +8,26 @@ import { light } from "@/modules/light"
 import { trains } from "@/modules/trains"
 import { weather } from "@/modules/weather"
 
-const { HA_URL, HA_TOKEN } = process.env
 const missingHa = new Error("HA_URL and HA_TOKEN must be set")
-const ha: Effects["ha"] =
-  HA_URL && HA_TOKEN
-    ? connectHomeAssistant({
-        url: HA_URL,
-        token: HA_TOKEN,
-        timeout: tapTimeout,
-      })
-    : {
-        watch: (_entityId, source) => source.fail(missingHa),
-        callService: async () => {
-          throw missingHa
-        },
-      }
+const ha: Effects["ha"] = env.ha
+  ? connectHomeAssistant({
+      url: env.ha.HA_URL,
+      token: env.ha.HA_TOKEN,
+      timeout: tapTimeout,
+    })
+  : {
+      watch: (_entityId, source) => source.fail(missingHa),
+      callService: async () => {
+        throw missingHa
+      },
+    }
 
 // The Workstation's forced command runs `open` on the URL (ADR 0002).
 const openOnWorkstation = async (url: string) => {
-  const { WORKSTATION_SSH, SSH_KEY, SSH_KNOWN_HOSTS } = process.env
   // Never fall back to the user's own keys: only the forced-command key may run.
-  if (!WORKSTATION_SSH || !SSH_KEY || !SSH_KNOWN_HOSTS)
+  if (!env.ssh)
     throw new Error("WORKSTATION_SSH, SSH_KEY and SSH_KNOWN_HOSTS must be set")
+  const { WORKSTATION_SSH, SSH_KEY, SSH_KNOWN_HOSTS } = env.ssh
   const ssh = Bun.spawn(
     [
       "ssh",
@@ -65,7 +64,7 @@ const hub = createHub({
 
 // Apache Common Log Format with numeric local time: 127.0.0.1 - - [2026-09-26 16:00:00] "GET / HTTP/1.1" 200 1234
 const server = Bun.serve({
-  port: process.env.PORT ?? 3000,
+  port: env.port,
   // SSE clients (/events) stay open indefinitely.
   idleTimeout: 0,
   fetch: async (request, server) => {

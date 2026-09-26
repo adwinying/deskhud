@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { defineModule } from "@/module"
 
 const url = "https://weather.yahoo.co.jp/weather/jp/13/4410/13107.html"
@@ -73,25 +74,38 @@ const parse = (html: string) => {
   }
 }
 
+// z.number() rejects the NaN that `firstNumber` yields for unparsable cells.
+const Slot = z.object({
+  time: z.string(),
+  upcoming: z.boolean(),
+  icon: z.string().min(1),
+  label: z.string(),
+  temp: z.number(),
+  humidity: z.number(),
+  precipitation: z.number(),
+  wind: z.number(),
+})
+
+const Forecast = z.object({
+  today: z.array(Slot).min(1),
+  tomorrow: z.array(Slot),
+  umbrella: z.number(),
+  clothing: z.number(),
+})
+
 // Throws on any markup surprise so the Module goes Stale instead of showing garbage.
 const scrape = async () => {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Yahoo天気 responded ${response.status}`)
-  const { today, tomorrow, umbrella, clothing } = parse(await response.text())
+  const forecast = Forecast.safeParse(parse(await response.text()))
+  if (!forecast.success)
+    throw new Error("unexpected Yahoo天気 markup", { cause: forecast.error })
+  const { today, tomorrow, umbrella, clothing } = forecast.data
 
   const slots = [...today, ...tomorrow]
   const nowIndex = slots.findIndex((slot) => slot.upcoming)
   const now = slots[nowIndex]
-  if (
-    !now ||
-    !today.length ||
-    [umbrella, clothing].some(Number.isNaN) ||
-    slots.some(
-      ({ icon, temp, humidity, precipitation, wind }) =>
-        !icon || [temp, humidity, precipitation, wind].some(Number.isNaN),
-    )
-  )
-    throw new Error("unexpected Yahoo天気 markup")
+  if (!now) throw new Error("unexpected Yahoo天気 markup: no current slot")
 
   const temps = today.map((slot) => slot.temp)
   return {
