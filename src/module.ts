@@ -1,13 +1,18 @@
 export type Effects = {
   ssh: { open: (url: string) => Promise<void> }
   ha: {
+    /** Resolves once HA reports the target entity's state changed. */
     callService: (
       domain: string,
       service: string,
-      data: Record<string, unknown>,
+      data: { entity_id: string },
     ) => Promise<void>
+    watch: (entityId: string, source: PushSource<string>) => void
   }
 }
+
+/** `next` on every reading, `fail` whenever the Source goes down. */
+export type PushSource<T> = { next(data: T): void; fail(error: unknown): void }
 
 // Method syntax keeps `render` bivariant, so any Module<T> fits in Module<unknown>[].
 export type Module<T> = {
@@ -15,12 +20,13 @@ export type Module<T> = {
   span: 1 | 2 | 3 | 4
   /** Higher comes first. */
   priority: number
-  schedule: { every: number }
-  fetch(): T | Promise<T>
   visible?(data: T, now: Date): boolean
   effectivePriority?(data: T): number
   render(data: T): JSX.Element
   tap?(effects: Effects): Promise<void>
-}
+} & (
+  | { schedule: { every: number }; fetch(): T | Promise<T> }
+  | { subscribe(effects: Effects, source: PushSource<T>): void }
+)
 
 export const defineModule = <T>(module: Module<T>) => module

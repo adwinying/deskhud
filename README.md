@@ -28,6 +28,9 @@ PORT=3000
 WORKSTATION_SSH=adwin@mayonaca
 SSH_KEY=/secrets/ssh/id_ed25519
 SSH_KNOWN_HOSTS=/secrets/ssh/known_hosts
+# Workspace light: Home Assistant base URL and a long-lived access token (HA profile → Security)
+HA_URL=http://homeassistant.lan:8123
+HA_TOKEN=eyJ...
 ```
 
 Add each Module's secrets here as Modules that need them land.

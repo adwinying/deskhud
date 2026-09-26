@@ -1,6 +1,7 @@
 import { html } from "@elysiajs/html"
 import { Elysia } from "elysia"
 import { TriangleAlert, X } from "lucide-static"
+import { icon } from "@/icon"
 import type { Effects, Module } from "@/module"
 import { Page } from "@/page"
 
@@ -26,10 +27,6 @@ const formatAge = (ms: number) => {
   const minutes = Math.floor(ms / 60_000)
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`
 }
-
-// Lucide SVGs are 24px; 1em makes them follow the surrounding text size.
-const icon = (svg: string) =>
-  svg.replace("<svg", '<svg aria-hidden="true"').replaceAll('="24"', '="1em"')
 
 export const tapTimeout = 5000
 const tapErrorDuration = 3000
@@ -141,20 +138,37 @@ export const createHub = ({ modules, effects }: HubOptions) => {
     }
   }
 
+  const record = (module: Module<unknown>, data: unknown) => {
+    store.set(module.id, { data, fetchedAt: Date.now(), stale: false })
+    return publish(module)
+  }
+
+  const markStale = (module: Module<unknown>, error: unknown) => {
+    console.error(`module ${module.id} Source failed`, error)
+    const entry = store.get(module.id)
+    if (entry) entry.stale = true
+    return publish(module)
+  }
+
   for (const module of modules) {
+    if ("subscribe" in module) {
+      module.subscribe(effects, {
+        next: (data) => record(module, data),
+        fail: (error) => {
+          // A push Source was confirmed good up to the moment it dropped.
+          const entry = store.get(module.id)
+          if (entry && !entry.stale) entry.fetchedAt = Date.now()
+          markStale(module, error)
+        },
+      })
+      continue
+    }
     const refresh = async () => {
       try {
-        store.set(module.id, {
-          data: await module.fetch(),
-          fetchedAt: Date.now(),
-          stale: false,
-        })
+        await record(module, await module.fetch())
       } catch (error) {
-        console.error(`module ${module.id} fetch failed`, error)
-        const entry = store.get(module.id)
-        if (entry) entry.stale = true
+        await markStale(module, error)
       }
-      await publish(module)
       // Chained rather than setInterval so a slow fetch never overlaps the next one.
       setTimeout(refresh, module.schedule.every).unref()
     }

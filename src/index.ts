@@ -1,12 +1,27 @@
 import dayjs from "dayjs"
+import { connectHomeAssistant } from "@/ha"
 import { createHub, tapTimeout } from "@/hub"
+import type { Effects } from "@/module"
 import { clock } from "@/modules/clock"
+import { light } from "@/modules/light"
 import { trains } from "@/modules/trains"
 import { weather } from "@/modules/weather"
 
-const notImplemented = async () => {
-  throw new Error("not implemented")
-}
+const { HA_URL, HA_TOKEN } = process.env
+const missingHa = new Error("HA_URL and HA_TOKEN must be set")
+const ha: Effects["ha"] =
+  HA_URL && HA_TOKEN
+    ? connectHomeAssistant({
+        url: HA_URL,
+        token: HA_TOKEN,
+        timeout: tapTimeout,
+      })
+    : {
+        watch: (_entityId, source) => source.fail(missingHa),
+        callService: async () => {
+          throw missingHa
+        },
+      }
 
 // The Workstation's forced command runs `open` on the URL (ADR 0002).
 const openOnWorkstation = async (url: string) => {
@@ -44,11 +59,8 @@ const openOnWorkstation = async (url: string) => {
 }
 
 const hub = createHub({
-  modules: [clock, weather, trains],
-  effects: {
-    ssh: { open: openOnWorkstation },
-    ha: { callService: notImplemented },
-  },
+  modules: [clock, weather, trains, light],
+  effects: { ssh: { open: openOnWorkstation }, ha },
 })
 
 // Apache Common Log Format with numeric local time: 127.0.0.1 - - [2026-09-26 16:00:00] "GET / HTTP/1.1" 200 1234

@@ -1,10 +1,11 @@
 import { expect, setSystemTime, spyOn, test } from "bun:test"
 import { createHub } from "@/hub"
-import { defineModule } from "@/module"
+import { defineModule, type PushSource } from "@/module"
+import { light, lightEntity } from "@/modules/light"
 
 const effects = {
   ssh: { open: async () => {} },
-  ha: { callService: async () => {} },
+  ha: { callService: async () => {}, watch: () => {} },
 }
 
 const readUntil = async (
@@ -224,5 +225,60 @@ test("tap runs the Module's Tap action and holds Pending until it settles", asyn
   const failed = await page()
   expect(failed).not.toContain("aria-busy")
   expect(failed).toContain("tap failed")
+  consoleError.mockRestore()
+})
+
+test("light follows its HA state, toggles through `ha` and goes Stale while disconnected", async () => {
+  const consoleError = spyOn(console, "error").mockImplementation(() => {})
+  const calls: unknown[][] = []
+  let watcher: PushSource<string> = {
+    next: () => {},
+    fail: () => {},
+  }
+  let settle = () => {}
+  const hub = createHub({
+    modules: [light],
+    effects: {
+      ...effects,
+      ha: {
+        watch: (_entityId, listener) => {
+          watcher = listener
+        },
+        callService: (...call) => {
+          calls.push(call)
+          return new Promise((resolve) => {
+            settle = resolve
+          })
+        },
+      },
+    },
+  })
+  const page = () =>
+    hub.handle(new Request("http://localhost/")).then((r) => r.text())
+  expect(await page()).not.toContain('id="module-light"')
+
+  watcher.next("off")
+  await Bun.sleep(0)
+  expect(await page()).toContain(">OFF<")
+
+  const tap = await hub.handle(
+    new Request("http://localhost/tap/light", { method: "POST" }),
+  )
+  expect(tap.status).toBe(202)
+  expect(calls).toEqual([
+    ["homeassistant", "toggle", { entity_id: lightEntity }],
+  ])
+  expect(await page()).toMatch(/id="module-light"[^>]*aria-busy="true"/)
+
+  watcher.next("on")
+  settle()
+  await Bun.sleep(0)
+  const toggled = await page()
+  expect(toggled).toContain(">ON<")
+  expect(toggled).not.toContain("aria-busy")
+
+  watcher.fail(new Error("websocket closed"))
+  await Bun.sleep(0)
+  expect(await page()).toContain("lucide-triangle-alert")
   consoleError.mockRestore()
 })
