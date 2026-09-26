@@ -34,6 +34,8 @@ HA_TOKEN=eyJ...
 # AI usage, as label:value lists: `claude setup-token` tokens, and mounted Codex auth.json paths (step 5)
 CLAUDE_TOKENS=personal:sk-ant-oat01-...,work:sk-ant-oat01-...
 CODEX_AUTHS=personal:/secrets/codex/personal/auth.json,work:/secrets/codex/work/auth.json
+# Tasks: TickTick Open API access token (step 6)
+TICKTICK_TOKEN=...
 ```
 
 `src/env.ts` validates these at startup. Omit a whole group to disable its feature; a partial group fails startup.
@@ -120,3 +122,23 @@ Each account is its own Module. List accounts as `label:value` pairs separated b
    ```
 
    Afterwards, check that `codex` on the Workstation is still logged in. If not, Codex usage has to move to a fetch over the SSH channel from ADR 0002.
+
+### 6. Tasks
+
+The Tasks Module counts TickTick's Today view through the Open API, which needs a one-off OAuth login.
+
+1. At https://developer.ticktick.com/manage, create an app with the redirect URL `http://localhost`.
+2. Open this URL in a browser and approve. The redirect fails to load; copy `code` from its address bar:
+
+   ```
+   https://ticktick.com/oauth/authorize?client_id=<client_id>&scope=tasks:read&state=deskhud&redirect_uri=http://localhost&response_type=code
+   ```
+
+3. Exchange the code and put `access_token` in `TICKTICK_TOKEN`:
+
+   ```bash
+   curl -u '<client_id>:<client_secret>' https://ticktick.com/oauth/token \
+     -d grant_type=authorization_code -d scope=tasks:read -d redirect_uri=http://localhost -d code=<code>
+   ```
+
+The response has no refresh token. Once the token expires, the Module goes Stale; repeat steps 2–3.

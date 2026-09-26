@@ -39,6 +39,8 @@ export const parseEnv = (env: Env) => ({
   // AI usage (ADR 0003): Claude setup-tokens and the Hub's own Codex auth.json paths
   claude: accounts.parse(env.CLAUDE_TOKENS),
   codex: accounts.parse(env.CODEX_AUTHS),
+  // Tasks: a TickTick Open API access token
+  ticktick: nonEmpty.optional().parse(env.TICKTICK_TOKEN),
   // Tap actions (ADR 0002)
   ssh: group(
     z.object({

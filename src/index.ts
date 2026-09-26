@@ -5,6 +5,7 @@ import { createHub, tapTimeout } from "@/hub"
 import type { Effects } from "@/module"
 import { clock } from "@/modules/clock"
 import { light } from "@/modules/light"
+import { tasks } from "@/modules/tasks"
 import { trains } from "@/modules/trains"
 import { claudeUsage, codexUsage } from "@/modules/usage"
 import { weather } from "@/modules/weather"
@@ -64,6 +65,7 @@ const hub = createHub({
     weather,
     trains,
     light,
+    ...(env.ticktick ? [tasks(env.ticktick)] : []),
     ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
     ...env.codex.map(({ label, value }) => codexUsage(label, value)),
   ],
