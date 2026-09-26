@@ -1,6 +1,7 @@
 import dayjs from "dayjs"
 import { createHub } from "@/hub"
 import { clock } from "@/modules/clock"
+import { trains } from "@/modules/trains"
 import { weather } from "@/modules/weather"
 
 const notImplemented = async () => {
@@ -8,7 +9,7 @@ const notImplemented = async () => {
 }
 
 const hub = createHub({
-  modules: [clock, weather],
+  modules: [clock, weather, trains],
   effects: {
     ssh: { open: notImplemented },
     ha: { callService: notImplemented },

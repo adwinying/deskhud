@@ -85,6 +85,53 @@ test("Hub serves visible Modules and streams patches", async () => {
   await reader.cancel()
 })
 
+test("visibility and effective Priority changes re-order the grid live", async () => {
+  let alert = false
+  const hub = createHub({
+    modules: [
+      defineModule({
+        id: "base",
+        span: 4,
+        priority: 5,
+        schedule: { every: 5 },
+        fetch: () => "base",
+        render: () => <p>base module</p>,
+      }),
+      defineModule({
+        id: "alert",
+        span: 4,
+        priority: 1,
+        schedule: { every: 5 },
+        fetch: () => alert,
+        visible: (active) => active,
+        effectivePriority: (active) => (active ? 10 : 1),
+        render: () => <p>alert module</p>,
+      }),
+    ],
+    effects,
+  })
+  await Bun.sleep(50)
+
+  const events = await hub.handle(new Request("http://localhost/events"))
+  const reader = events.body?.getReader()
+  if (!reader) throw new Error("SSE response has no body")
+  expect(await readUntil(reader, "\n\n")).not.toContain("alert module")
+
+  alert = true
+  const shown = await readUntil(reader, "alert module")
+  expect(shown).toContain('id="grid"')
+  expect(shown.indexOf("alert module")).toBeLessThan(
+    shown.indexOf("base module"),
+  )
+
+  alert = false
+  const hidden = await readUntil(reader, 'id="grid"')
+  expect(hidden).toContain("base module")
+  expect(hidden).not.toContain("alert module")
+
+  await reader.cancel()
+})
+
 test("failing Source keeps Last known good and marks the Module Stale", async () => {
   const consoleError = spyOn(console, "error").mockImplementation(() => {})
   let failing = false
