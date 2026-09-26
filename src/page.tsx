@@ -8,7 +8,23 @@ export const Page = ({ children }: { children: JSX.Element }) => (
         <title>deskhud</title>
         <style>
           {`[un-cloak] { display: none; }
-          body { font-family: "Noto Sans JP", sans-serif; }`}
+          /* The drift must not make the page pannable sideways. */
+          html { overflow-x: clip; }
+          body {
+            font-family: "Noto Sans JP", sans-serif;
+            animation: drift 1920s step-end infinite;
+          }
+          /* OLED burn-in guard: 8 whole-pixel offsets, one hop every 4 minutes. */
+          @keyframes drift {
+            0% { transform: translate(0, 0); }
+            12.5% { transform: translate(2px, 1px); }
+            25% { transform: translate(-1px, 2px); }
+            37.5% { transform: translate(-2px, -1px); }
+            50% { transform: translate(1px, -2px); }
+            62.5% { transform: translate(2px, 2px); }
+            75% { transform: translate(-2px, 0); }
+            87.5% { transform: translate(0, -2px); }
+          }`}
         </style>
         <link
           rel="stylesheet"
@@ -27,7 +43,9 @@ export const Page = ({ children }: { children: JSX.Element }) => (
       <body
         un-cloak
         class="bg-black text-neutral-100"
-        data-init="@get('/events')"
+        data-init="@get('/events', { openWhenHidden: true, retry: 'always', retryMaxCount: Infinity })"
+        // Screen wake: start from the top in case the page was left scrolled.
+        data-on:visibilitychange__document="!document.hidden && window.scrollTo(0, 0)"
       >
         <div class="mx-auto max-w-lg p-3">{children}</div>
       </body>
