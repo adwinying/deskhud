@@ -14,7 +14,8 @@
     "@elysiajs/html": "^1.4.2",
     "@kitajs/html": "^4.2.13",
     "dayjs": "^1.11.23",
-    "elysia": "^1.4.30"
+    "elysia": "^1.4.30",
+    "lucide-static": "^1.48.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

@@ -155,7 +155,7 @@ test("failing Source keeps Last known good and marks the Module Stale", async ()
     hub.handle(new Request("http://localhost/")).then((r) => r.text())
 
   await Bun.sleep(50)
-  expect(await page()).not.toContain("⚠")
+  expect(await page()).not.toContain("lucide-triangle-alert")
 
   failing = true
   await Bun.sleep(50)
@@ -163,11 +163,12 @@ test("failing Source keeps Last known good and marks the Module Stale", async ()
   const stale = await page()
   setSystemTime()
   expect(stale).toContain("reading good")
-  expect(stale).toContain("⚠ 12m ago")
+  expect(stale).toContain("lucide-triangle-alert")
+  expect(stale).toContain("12m ago")
 
   failing = false
   await Bun.sleep(50)
-  expect(await page()).not.toContain("⚠")
+  expect(await page()).not.toContain("lucide-triangle-alert")
   consoleError.mockRestore()
 })
 

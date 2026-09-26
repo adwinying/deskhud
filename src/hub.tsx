@@ -1,5 +1,6 @@
 import { html } from "@elysiajs/html"
 import { Elysia } from "elysia"
+import { TriangleAlert, X } from "lucide-static"
 import type { Effects, Module } from "@/module"
 import { Page } from "@/page"
 
@@ -25,6 +26,10 @@ const formatAge = (ms: number) => {
   const minutes = Math.floor(ms / 60_000)
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`
 }
+
+// Lucide SVGs are 24px; 1em makes them follow the surrounding text size.
+const icon = (svg: string) =>
+  svg.replace("<svg", '<svg aria-hidden="true"').replaceAll('="24"', '="1em"')
 
 export const tapTimeout = 5000
 const tapErrorDuration = 3000
@@ -63,13 +68,13 @@ export const createHub = ({ modules, effects }: HubOptions) => {
       >
         {await module.render(entry?.data)}
         {tap === "failed" && (
-          <p class="absolute -top-2 left-2 rounded bg-red-500 px-1 text-xs text-white">
-            ✕ tap failed
+          <p class="absolute -top-2 left-2 flex items-center gap-1 rounded bg-red-500 px-1 text-xs text-white">
+            {icon(X)} tap failed
           </p>
         )}
         {entry?.stale && (
-          <p class="absolute -top-2 right-2 rounded bg-amber-400 px-1 text-xs text-black">
-            ⚠ {formatAge(Date.now() - entry.fetchedAt)} ago
+          <p class="absolute -top-2 right-2 flex items-center gap-1 rounded bg-amber-400 px-1 text-xs text-black">
+            {icon(TriangleAlert)} {formatAge(Date.now() - entry.fetchedAt)} ago
           </p>
         )}
       </section>
