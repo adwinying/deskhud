@@ -110,6 +110,7 @@ export const weather = defineModule({
   priority: 40,
   schedule: { every: 10 * 60_000 },
   fetch: scrape,
+  tap: ({ ssh }) => ssh.open(url),
   render: ({ now, high, low, umbrella, clothing, forecasts }) => (
     <div class="flex flex-col gap-3 rounded-xl bg-neutral-900 p-4">
       <div class="flex items-center gap-3">

@@ -170,3 +170,58 @@ test("failing Source keeps Last known good and marks the Module Stale", async ()
   expect(await page()).not.toContain("⚠")
   consoleError.mockRestore()
 })
+
+test("tap runs the Module's Tap action and holds Pending until it settles", async () => {
+  const consoleError = spyOn(console, "error").mockImplementation(() => {})
+  const opened: string[] = []
+  let settle = (_error?: Error) => {}
+  const hub = createHub({
+    modules: [
+      defineModule({
+        id: "tappable",
+        span: 4,
+        priority: 1,
+        schedule: { every: 60_000 },
+        fetch: () => "tappable",
+        render: () => <p>tappable module</p>,
+        tap: ({ ssh }) => ssh.open("https://example.com/"),
+      }),
+    ],
+    effects: {
+      ...effects,
+      ssh: {
+        open: (url) => {
+          opened.push(url)
+          return new Promise((resolve, reject) => {
+            settle = (error) => (error ? reject(error) : resolve())
+          })
+        },
+      },
+    },
+  })
+  await Bun.sleep(10)
+  const tap = (id: string) =>
+    hub.handle(new Request(`http://localhost/tap/${id}`, { method: "POST" }))
+  const page = () =>
+    hub.handle(new Request("http://localhost/")).then((r) => r.text())
+
+  expect((await tap("unknown")).status).toBe(404)
+
+  expect((await tap("tappable")).status).toBe(202)
+  expect(opened).toEqual(["https://example.com/"])
+  expect(await page()).toMatch(/id="module-tappable"[^>]*aria-busy="true"/)
+  expect((await tap("tappable")).status).toBe(409)
+  expect(opened).toHaveLength(1)
+
+  settle()
+  await Bun.sleep(0)
+  expect(await page()).not.toContain("aria-busy")
+
+  await tap("tappable")
+  settle(new Error("ssh exited 255"))
+  await Bun.sleep(0)
+  const failed = await page()
+  expect(failed).not.toContain("aria-busy")
+  expect(failed).toContain("tap failed")
+  consoleError.mockRestore()
+})

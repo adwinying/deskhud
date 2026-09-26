@@ -14,7 +14,8 @@ RUN case "$TARGETARCH" in amd64) arch=x64 ;; *) arch=$TARGETARCH ;; esac \
 
 FROM alpine:3
 # Debug tools; cat and wget already come with busybox.
-RUN apk add --no-cache libstdc++ libgcc tzdata bash curl vim less
+# openssh-client runs Tap actions on the Workstation.
+RUN apk add --no-cache libstdc++ libgcc tzdata openssh-client bash curl vim less
 COPY --from=build /app/deskhud /usr/local/bin/deskhud
 
 ENV NODE_ENV=production TZ=Asia/Tokyo
