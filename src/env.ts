@@ -50,6 +50,18 @@ export const parseEnv = (env: Env) => ({
     }),
     env,
   ),
+  // Calendar: a Google OAuth client and a refresh token per account (scripts/google-calendar-setup.sh)
+  googleCalendar: group(
+    z.object({
+      GOOGLE_CALENDAR_CLIENT_ID: nonEmpty,
+      GOOGLE_CALENDAR_CLIENT_SECRET: nonEmpty,
+      GOOGLE_CALENDAR_TOKENS: accounts.refine(
+        (entries) => entries.length > 0,
+        "expected label:refreshToken",
+      ),
+    }),
+    env,
+  ),
   // CO2: base URL of the Tasmota device with the SCD40 sensor
   co2: z.url().optional().parse(env.CO2_SENSOR_URL),
   // Threads: each T3 Code environment's URL (e.g. its T3 Connect address) and `t3 auth session issue` token

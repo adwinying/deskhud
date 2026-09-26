@@ -8,7 +8,7 @@ export const lightEntity = "switch.workspace_front"
 export const light = defineModule<string>({
   id: "light",
   span: 1,
-  priority: 45,
+  priority: 46,
   subscribe: ({ ha }, source) => ha.watch(lightEntity, source),
   tap: ({ ha }) =>
     ha.callService("homeassistant", "toggle", { entity_id: lightEntity }),

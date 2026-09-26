@@ -40,6 +40,10 @@ TICKTICK_TOKEN=...
 GOOGLE_HEALTH_CLIENT_ID=....apps.googleusercontent.com
 GOOGLE_HEALTH_CLIENT_SECRET=GOCSPX-...
 GOOGLE_HEALTH_REFRESH_TOKEN=1//...
+# Calendar: a banner from an hour before each event until 10 minutes in, as label:refreshToken per account (step 8)
+GOOGLE_CALENDAR_CLIENT_ID=....apps.googleusercontent.com
+GOOGLE_CALENDAR_CLIENT_SECRET=GOCSPX-...
+GOOGLE_CALENDAR_TOKENS=personal:1//...,work:1//...
 # CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm
 CO2_SENSOR_URL=http://192.168.5.5
 # Threads: a banner when a T3 Code thread needs attention, as label:url|token per machine. Each machine's
@@ -160,3 +164,9 @@ The Sleep Module reads last night's main sleep and HRV from the Google Health AP
 Run `scripts/google-health-setup.sh` on the Workstation. It walks through the Cloud project and OAuth client, gets a refresh token and writes the three `GOOGLE_HEALTH_*` values to `.env`. Copy them into `deskhud.env`.
 
 Keep the app **In production** but unverified: in Testing, refresh tokens expire after 7 days. A token unused for 6 months also expires; then re-run the script.
+
+### 8. Calendar
+
+The Calendar Module shows timed events from each account's primary calendar, skipping all-day and declined ones. Tapping opens the first event in the Workstation's browser, signed in as the event's account.
+
+Run `scripts/google-calendar-setup.sh` on the Workstation after step 7. It adds the Calendar API to the same Cloud project and OAuth client, authorizes each account and writes the three `GOOGLE_CALENDAR_*` values to `.env`. Copy them into `deskhud.env`.

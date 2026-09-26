@@ -11,6 +11,7 @@ test("unset groups leave their feature off", () => {
     codex: [],
     ticktick: undefined,
     googleHealth: undefined,
+    googleCalendar: undefined,
     co2: undefined,
     t3code: [],
     ssh: undefined,

@@ -3,6 +3,7 @@ import { env } from "@/env"
 import { connectHomeAssistant } from "@/ha"
 import { createHub, tapTimeout } from "@/hub"
 import type { Effects } from "@/module"
+import { calendar } from "@/modules/calendar"
 import { clock } from "@/modules/clock"
 import { co2 } from "@/modules/co2"
 import { light } from "@/modules/light"
@@ -71,6 +72,19 @@ const hub = createHub({
     ...(env.co2 ? [co2(env.co2)] : []),
     ...(env.t3code.length > 0 ? [threads(env.t3code)] : []),
     ...(env.ticktick ? [tasks(env.ticktick)] : []),
+    ...(env.googleCalendar
+      ? [
+          calendar(
+            {
+              clientId: env.googleCalendar.GOOGLE_CALENDAR_CLIENT_ID,
+              clientSecret: env.googleCalendar.GOOGLE_CALENDAR_CLIENT_SECRET,
+            },
+            env.googleCalendar.GOOGLE_CALENDAR_TOKENS.map(
+              ({ label, value }) => ({ label, refreshToken: value }),
+            ),
+          ),
+        ]
+      : []),
     ...(env.googleHealth
       ? [
           sleep({

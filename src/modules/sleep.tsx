@@ -7,6 +7,7 @@ import {
   SquareActivity,
 } from "lucide-static"
 import { z } from "zod"
+import { authorize, type Credentials } from "@/google"
 import { icon } from "@/icon"
 import { defineModule } from "@/module"
 
@@ -14,35 +15,6 @@ const api = "https://health.googleapis.com/v4/users/me/dataTypes"
 
 // A hung request would otherwise stall the schedule without ever going Stale.
 const timeout = () => AbortSignal.timeout(30_000)
-
-export type Credentials = {
-  clientId: string
-  clientSecret: string
-  refreshToken: string
-}
-
-const Token = z.object({ access_token: z.string() })
-
-// Google refresh tokens don't rotate, so the one from setup lasts until revoked.
-const authorize = async ({
-  clientId,
-  clientSecret,
-  refreshToken,
-}: Credentials) => {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-    signal: timeout(),
-  })
-  if (!response.ok)
-    throw new Error(`Google token refresh responded ${response.status}`)
-  return Token.parse(await response.json()).access_token
-}
 
 // int64 fields arrive as strings.
 const numeric = z.string().min(1).transform(Number).pipe(z.number())

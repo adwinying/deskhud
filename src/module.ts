@@ -27,7 +27,7 @@ export type Module<T> = {
   visible?(data: T, now: Date): boolean
   effectivePriority?(data: T, now: Date): number
   render(data: T): JSX.Element
-  tap?(effects: Effects): Promise<void>
+  tap?(effects: Effects, data: T): Promise<void>
 } & (
   | { schedule: { every: number }; fetch(): T | Promise<T> }
   | { subscribe(effects: Effects, source: PushSource<T>): void }

@@ -124,7 +124,7 @@ export const createHub = ({ modules, effects }: HubOptions) => {
     setTap(module, { status: "pending" })
     try {
       await Promise.race([
-        module.tap?.(effects),
+        module.tap?.(effects, store.get(module.id)?.data),
         Bun.sleep(tapTimeout).then(() => {
           throw new Error(`timed out after ${tapTimeout}ms`)
         }),
