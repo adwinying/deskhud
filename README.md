@@ -88,7 +88,7 @@ Point Fully Kiosk Browser's start URL at that hostname.
 
 ### 4. Workstation (Tap actions)
 
-Tap actions open URLs on the Workstation over SSH, with a key that can only run `open` on `https://` URLs (ADR 0002).
+Tap actions open URLs and control media on the Workstation over SSH, with a key that can only run `open` on `https://` URLs and fixed `media-control` commands (ADR 0002).
 
 1. On the NAS, create the key and pin the Workstation's host key. Use the tailnet IP rather than the MagicDNS name, which the container may not resolve. The container runs as `nobody` (uid 65534), and ssh refuses a key readable by others:
 
@@ -104,10 +104,10 @@ Tap actions open URLs on the Workstation over SSH, with a key that can only run 
 3. Append one line to `~/.ssh/authorized_keys` on the Workstation, replacing the key with `id_ed25519.pub`:
 
    ```
-   restrict,from="<NAS tailnet IP>",command="case \"$SSH_ORIGINAL_COMMAND\" in https://*) exec /usr/bin/open \"$SSH_ORIGINAL_COMMAND\";; t3code) exec /usr/bin/open -b com.t3tools.t3code;; *) exit 1;; esac" ssh-ed25519 AAAA... deskhud
+   restrict,from="<NAS tailnet IP>",command="case \"$SSH_ORIGINAL_COMMAND\" in https://*) exec /usr/bin/open \"$SSH_ORIGINAL_COMMAND\";; t3code) exec /usr/bin/open -b com.t3tools.t3code;; media-toggle) exec /opt/homebrew/bin/media-control toggle-play-pause;; media-previous) exec /opt/homebrew/bin/media-control previous-track;; media-next) exec /opt/homebrew/bin/media-control next-track;; media-stream) exec /opt/homebrew/bin/media-control stream --micros 2>/dev/null;; *) exit 1;; esac" ssh-ed25519 AAAA... deskhud
    ```
 
-   `open` needs a logged-in GUI session.
+   `open` needs a logged-in GUI session. The `media-*` commands need `media-control` (step 9).
 
 4. In the tailnet policy, allow only the NAS to reach the Workstation on tcp:22:
 
@@ -117,7 +117,7 @@ Tap actions open URLs on the Workstation over SSH, with a key that can only run 
 
    Don't enable Tailscale SSH on the Workstation: it ignores `authorized_keys`.
 
-5. Check from the NAS: `docker exec deskhud ssh -i /secrets/ssh/id_ed25519 -o UserKnownHostsFile=/secrets/ssh/known_hosts adwin@mayonaca https://example.com` opens the page, `t3code` brings T3 Code to the front, and anything else fails.
+5. Check from the NAS: `docker exec deskhud ssh -i /secrets/ssh/id_ed25519 -o UserKnownHostsFile=/secrets/ssh/known_hosts adwin@mayonaca https://example.com` opens the page, `t3code` brings T3 Code to the front, `media-toggle` plays or pauses, and anything else fails.
 
 ### 5. AI usage
 
@@ -170,3 +170,14 @@ Keep the app **In production** but unverified: in Testing, refresh tokens expire
 The Calendar Module shows timed events from each account's primary calendar, skipping all-day and declined ones. Tapping opens the first event in the Workstation's browser, signed in as the event's account.
 
 Run `scripts/google-calendar-setup.sh` on the Workstation after step 7. It adds the Calendar API to the same Cloud project and OAuth client, authorizes each account and writes the three `GOOGLE_CALENDAR_*` values to `.env`. Copy them into `deskhud.env`.
+
+### 9. Now Playing
+
+The Media Module shows the Workstation's Now Playing app, like the iOS lock screen player, while it plays and for 5 minutes after pausing. Tapping the card plays or pauses; the side buttons skip. It only appears when the Tap action group (step 4) is set.
+
+On the Workstation, install [media-control](https://github.com/ungive/media-control), which reads Now Playing through Perl's entitlement since macOS 15.4 locked the private API:
+
+```bash
+brew install media-control
+media-control test
+```

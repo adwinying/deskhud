@@ -2,11 +2,12 @@ import dayjs from "dayjs"
 import { env } from "@/env"
 import { connectHomeAssistant } from "@/ha"
 import { createHub, tapTimeout } from "@/hub"
-import type { Effects } from "@/module"
+import type { Effects, PushSource } from "@/module"
 import { calendar } from "@/modules/calendar"
 import { clock } from "@/modules/clock"
 import { co2 } from "@/modules/co2"
 import { light } from "@/modules/light"
+import { media } from "@/modules/media"
 import { sleep } from "@/modules/sleep"
 import { tasks } from "@/modules/tasks"
 import { threads } from "@/modules/threads"
@@ -28,32 +29,39 @@ const ha: Effects["ha"] = env.ha
       },
     }
 
-// The Workstation's forced command runs `open` on an https URL or a fixed app name (ADR 0002).
-const runOnWorkstation = async (command: string) => {
+// The Workstation's forced command maps each command to `open` or `media-control` (ADR 0002).
+const sshCommand = (command: string) => {
   // Never fall back to the user's own keys: only the forced-command key may run.
   if (!env.ssh)
     throw new Error("WORKSTATION_SSH, SSH_KEY and SSH_KNOWN_HOSTS must be set")
   const { WORKSTATION_SSH, SSH_KEY, SSH_KNOWN_HOSTS } = env.ssh
+  return [
+    "ssh",
+    "-T",
+    // Ignores ~/.ssh/config, whose IdentityFile would still be offered.
+    "-F",
+    "/dev/null",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=5",
+    // Ends a silently dead stream, which would otherwise never exit.
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "IdentitiesOnly=yes",
+    "-i",
+    SSH_KEY,
+    "-o",
+    `UserKnownHostsFile=${SSH_KNOWN_HOSTS}`,
+    WORKSTATION_SSH,
+    command,
+  ]
+}
+
+const runOnWorkstation = async (command: string) => {
   const ssh = Bun.spawn(
-    [
-      "ssh",
-      "-T",
-      // Ignores ~/.ssh/config, whose IdentityFile would still be offered.
-      "-F",
-      "/dev/null",
-      "-o",
-      "BatchMode=yes",
-      "-o",
-      "ConnectTimeout=5",
-      "-o",
-      "IdentitiesOnly=yes",
-      "-i",
-      SSH_KEY,
-      "-o",
-      `UserKnownHostsFile=${SSH_KNOWN_HOSTS}`,
-      WORKSTATION_SSH,
-      command,
-    ],
+    sshCommand(command),
     // Killed when the Hub gives up, so a late `open` can't follow the shown error.
     { stdout: "ignore", stderr: "pipe", timeout: tapTimeout },
   )
@@ -61,6 +69,33 @@ const runOnWorkstation = async (command: string) => {
     throw new Error(
       `ssh exited ${ssh.exitCode}: ${await new Response(ssh.stderr).text()}`,
     )
+}
+
+const reconnectDelay = 5_000
+
+const watchOnWorkstation = (command: string, source: PushSource<string>) => {
+  const connect = async () => {
+    const ssh = Bun.spawn(sshCommand(command), {
+      stdout: "pipe",
+      stderr: "inherit",
+    })
+    try {
+      let partial = ""
+      for await (const chunk of ssh.stdout.pipeThrough(
+        new TextDecoderStream(),
+      )) {
+        const lines = (partial + chunk).split("\n")
+        partial = lines.pop() ?? ""
+        for (const line of lines) if (line) source.next(line)
+      }
+      throw new Error(`ssh exited ${await ssh.exited}`)
+    } catch (error) {
+      ssh.kill()
+      source.fail(error)
+      setTimeout(connect, reconnectDelay)
+    }
+  }
+  connect()
 }
 
 const hub = createHub({
@@ -85,6 +120,7 @@ const hub = createHub({
           ),
         ]
       : []),
+    ...(env.ssh ? [media] : []),
     ...(env.googleHealth
       ? [
           sleep({
@@ -97,7 +133,15 @@ const hub = createHub({
     ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
     ...env.codex.map(({ label, value }) => codexUsage(label, value)),
   ],
-  effects: { ssh: { open: runOnWorkstation, activate: runOnWorkstation }, ha },
+  effects: {
+    ssh: {
+      open: runOnWorkstation,
+      activate: runOnWorkstation,
+      media: (command) => runOnWorkstation(`media-${command}`),
+      watchMedia: (source) => watchOnWorkstation("media-stream", source),
+    },
+    ha,
+  },
 })
 
 // Apache Common Log Format with numeric local time: 127.0.0.1 - - [2026-09-26 16:00:00] "GET / HTTP/1.1" 200 1234

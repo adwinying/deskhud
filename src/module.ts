@@ -3,6 +3,10 @@ export type Effects = {
     open: (url: string) => Promise<void>
     /** Launches or focuses an app the forced command allows. */
     activate: (app: "t3code") => Promise<void>
+    /** Sends a playback command to the Workstation's Now Playing app. */
+    media: (command: "toggle" | "previous" | "next") => Promise<void>
+    /** Streams `media-control stream` lines, reconnecting after each `fail`. */
+    watchMedia: (source: PushSource<string>) => void
   }
   ha: {
     /** Resolves once HA reports the target entity's state changed. */
@@ -27,7 +31,8 @@ export type Module<T> = {
   visible?(data: T, now: Date): boolean
   effectivePriority?(data: T, now: Date): number
   render(data: T): JSX.Element
-  tap?(effects: Effects, data: T): Promise<void>
+  /** `action` names the button tapped inside the Module, if any. */
+  tap?(effects: Effects, data: T, action?: string): Promise<void>
 } & (
   | { schedule: { every: number }; fetch(): T | Promise<T> }
   | { subscribe(effects: Effects, source: PushSource<T>): void }

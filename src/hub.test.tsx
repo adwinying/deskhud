@@ -4,7 +4,12 @@ import { defineModule, type PushSource } from "@/module"
 import { light, lightEntity } from "@/modules/light"
 
 const effects = {
-  ssh: { open: async () => {}, activate: async () => {} },
+  ssh: {
+    open: async () => {},
+    activate: async () => {},
+    media: async () => {},
+    watchMedia: () => {},
+  },
   ha: { callService: async () => {}, watch: () => {} },
 }
 
@@ -282,4 +287,32 @@ test("light follows its HA state, toggles through `ha` and goes Stale while disc
   await Bun.sleep(0)
   expect(await page()).toContain("lucide-triangle-alert")
   consoleError.mockRestore()
+})
+
+test("tap forwards the tapped button's action to the Module", async () => {
+  const actions: (string | undefined)[] = []
+  const hub = createHub({
+    modules: [
+      defineModule({
+        id: "buttons",
+        span: 4,
+        priority: 1,
+        schedule: { every: 60_000 },
+        fetch: () => "buttons",
+        render: () => <p>buttons module</p>,
+        tap: async (_, __, action) => {
+          actions.push(action)
+        },
+      }),
+    ],
+    effects,
+  })
+  await Bun.sleep(10)
+  const tap = (path: string) =>
+    hub.handle(new Request(`http://localhost/tap/${path}`, { method: "POST" }))
+
+  expect((await tap("buttons/next")).status).toBe(202)
+  await Bun.sleep(0)
+  expect((await tap("buttons")).status).toBe(202)
+  expect(actions).toEqual(["next", undefined])
 })

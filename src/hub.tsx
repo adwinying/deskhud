@@ -120,11 +120,11 @@ export const createHub = ({ modules, effects }: HubOptions) => {
   }
 
   // The Module ID doubles as the Tap action ID, so the Kiosk never sends what the tap does.
-  const runTap = async (module: Module<unknown>) => {
+  const runTap = async (module: Module<unknown>, action?: string) => {
     setTap(module, { status: "pending" })
     try {
       await Promise.race([
-        module.tap?.(effects, store.get(module.id)?.data),
+        module.tap?.(effects, store.get(module.id)?.data, action),
         Bun.sleep(tapTimeout).then(() => {
           throw new Error(`timed out after ${tapTimeout}ms`)
         }),
@@ -176,10 +176,9 @@ export const createHub = ({ modules, effects }: HubOptions) => {
     refresh()
   }
 
-  // Keeps Stale ages current between fetches.
+  // Keeps Stale ages and time-based visibility current between readings.
   setInterval(() => {
-    for (const module of modules)
-      if (store.get(module.id)?.stale) publish(module)
+    for (const module of modules) publish(module)
   }, 60_000).unref()
 
   return new Elysia()
@@ -205,11 +204,11 @@ export const createHub = ({ modules, effects }: HubOptions) => {
         },
       })
     })
-    .post("/tap/:id", ({ params, status }) => {
+    .post("/tap/:id/:action?", ({ params, status }) => {
       const module = modules.find(({ id }) => id === params.id)
       if (!module?.tap) return status(404)
       if (taps.get(module.id)?.status === "pending") return status(409)
-      runTap(module)
+      runTap(module, params.action)
       return status(202)
     })
 }

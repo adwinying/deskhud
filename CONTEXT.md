@@ -41,7 +41,7 @@ The most recent successful reading from a Source, kept and shown when the Source
 _Avoid_: cache, fallback
 
 **Tap action**:
-Something a Module does when tapped on the Kiosk: opening a URL on the Workstation, or calling a Home Assistant service.
+Something a Module does when tapped on the Kiosk: opening a URL on the Workstation, controlling its media playback, or calling a Home Assistant service.
 _Avoid_: click handler, action
 
 **Pending**:
