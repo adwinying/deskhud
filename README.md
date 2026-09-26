@@ -31,6 +31,9 @@ SSH_KNOWN_HOSTS=/secrets/ssh/known_hosts
 # Workspace light: Home Assistant base URL and a long-lived access token (HA profile → Security)
 HA_URL=http://homeassistant.lan:8123
 HA_TOKEN=eyJ...
+# AI usage, as label:value lists: `claude setup-token` tokens, and mounted Codex auth.json paths (step 5)
+CLAUDE_TOKENS=personal:sk-ant-oat01-...,work:sk-ant-oat01-...
+CODEX_AUTHS=personal:/secrets/codex/personal/auth.json,work:/secrets/codex/work/auth.json
 ```
 
 `src/env.ts` validates these at startup. Omit a whole group to disable its feature; a partial group fails startup.
@@ -43,6 +46,7 @@ Add each Module's secrets here as Modules that need them land.
 docker run -d --name deskhud --restart unless-stopped \
   --env-file /path/to/secrets/deskhud.env \
   -v /path/to/secrets/deskhud-ssh:/secrets/ssh:ro \
+  -v /path/to/secrets/deskhud-codex:/secrets/codex \
   -p 3000:3000 \
   ghcr.io/adwinying/deskhud:latest
 ```
@@ -98,3 +102,21 @@ Tap actions open URLs on the Workstation over SSH, with a key that can only run 
    Don't enable Tailscale SSH on the Workstation: it ignores `authorized_keys`.
 
 5. Check from the NAS: `docker exec deskhud ssh -i /secrets/ssh/id_ed25519 -o UserKnownHostsFile=/secrets/ssh/known_hosts adwin@mayonaca https://example.com` opens the page; any non-`https://` command fails.
+
+### 5. AI usage
+
+Both logins belong to the NAS alone (ADR 0003). Never copy the Workstation's credentials: refresh tokens are single-use, so sharing one logs a side out.
+
+Each account is its own Module. List accounts as `label:value` pairs separated by commas; the label is shown on the Module. Either list may be omitted.
+
+1. Claude: run `claude setup-token` once per account and add each token to `CLAUDE_TOKENS`. Each probe costs about one token; none are sent while a limit is hit.
+2. Codex: log each account in on the NAS into its own `CODEX_HOME`, then add its `auth.json` to `CODEX_AUTHS`. The Hub rewrites `auth.json` on every token refresh, so the mount stays writable and owned by `nobody`:
+
+   ```bash
+   label=personal
+   mkdir -p /path/to/secrets/deskhud-codex/$label
+   docker run --rm -it -v /path/to/secrets/deskhud-codex/$label:/codex -e CODEX_HOME=/codex node:22 npx -y @openai/codex login --device-auth
+   sudo chown -R 65534:65534 /path/to/secrets/deskhud-codex && chmod 600 /path/to/secrets/deskhud-codex/*/auth.json
+   ```
+
+   Afterwards, check that `codex` on the Workstation is still logged in. If not, Codex usage has to move to a fetch over the SSH channel from ADR 0002.

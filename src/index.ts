@@ -6,6 +6,7 @@ import type { Effects } from "@/module"
 import { clock } from "@/modules/clock"
 import { light } from "@/modules/light"
 import { trains } from "@/modules/trains"
+import { claudeUsage, codexUsage } from "@/modules/usage"
 import { weather } from "@/modules/weather"
 
 const missingHa = new Error("HA_URL and HA_TOKEN must be set")
@@ -58,7 +59,14 @@ const openOnWorkstation = async (url: string) => {
 }
 
 const hub = createHub({
-  modules: [clock, weather, trains, light],
+  modules: [
+    clock,
+    weather,
+    trains,
+    light,
+    ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
+    ...env.codex.map(({ label, value }) => codexUsage(label, value)),
+  ],
   effects: { ssh: { open: openOnWorkstation }, ha },
 })
 

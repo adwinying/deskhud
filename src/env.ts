@@ -10,10 +10,35 @@ const group = <T extends z.ZodObject>(schema: T, env: Env) =>
     ? schema.parse(env)
     : undefined
 
+// "label:value,label:value"; labels become Module IDs, so they must be unique.
+const accounts = z
+  .string()
+  .optional()
+  .transform((list) => list?.split(",") ?? [])
+  .pipe(
+    z.array(
+      z
+        .string()
+        .regex(/^[\w-]+:.+$/, "expected label:value")
+        .transform((entry) => {
+          const colon = entry.indexOf(":")
+          return { label: entry.slice(0, colon), value: entry.slice(colon + 1) }
+        }),
+    ),
+  )
+  .refine(
+    (entries) =>
+      new Set(entries.map(({ label }) => label)).size === entries.length,
+    "duplicate label",
+  )
+
 export const parseEnv = (env: Env) => ({
   port: z.coerce.number().int().positive().default(3000).parse(env.PORT),
   // Workspace light
   ha: group(z.object({ HA_URL: z.url(), HA_TOKEN: nonEmpty }), env),
+  // AI usage (ADR 0003): Claude setup-tokens and the Hub's own Codex auth.json paths
+  claude: accounts.parse(env.CLAUDE_TOKENS),
+  codex: accounts.parse(env.CODEX_AUTHS),
   // Tap actions (ADR 0002)
   ssh: group(
     z.object({
