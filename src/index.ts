@@ -4,6 +4,7 @@ import { connectHomeAssistant } from "@/ha"
 import { createHub, tapTimeout } from "@/hub"
 import type { Effects } from "@/module"
 import { clock } from "@/modules/clock"
+import { co2 } from "@/modules/co2"
 import { light } from "@/modules/light"
 import { tasks } from "@/modules/tasks"
 import { trains } from "@/modules/trains"
@@ -65,6 +66,7 @@ const hub = createHub({
     weather,
     trains,
     light,
+    ...(env.co2 ? [co2(env.co2)] : []),
     ...(env.ticktick ? [tasks(env.ticktick)] : []),
     ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
     ...env.codex.map(({ label, value }) => codexUsage(label, value)),

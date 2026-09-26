@@ -10,6 +10,7 @@ test("unset groups leave their feature off", () => {
     claude: [],
     codex: [],
     ticktick: undefined,
+    co2: undefined,
     ssh: undefined,
   })
 })

@@ -36,6 +36,8 @@ CLAUDE_TOKENS=personal:sk-ant-oat01-...,work:sk-ant-oat01-...
 CODEX_AUTHS=personal:/secrets/codex/personal/auth.json,work:/secrets/codex/work/auth.json
 # Tasks: TickTick Open API access token (step 6)
 TICKTICK_TOKEN=...
+# CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm
+CO2_SENSOR_URL=http://192.168.5.5
 ```
 
 `src/env.ts` validates these at startup. Omit a whole group to disable its feature; a partial group fails startup.

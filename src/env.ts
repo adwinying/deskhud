@@ -41,6 +41,8 @@ export const parseEnv = (env: Env) => ({
   codex: accounts.parse(env.CODEX_AUTHS),
   // Tasks: a TickTick Open API access token
   ticktick: nonEmpty.optional().parse(env.TICKTICK_TOKEN),
+  // CO2: base URL of the Tasmota device with the SCD40 sensor
+  co2: z.url().optional().parse(env.CO2_SENSOR_URL),
   // Tap actions (ADR 0002)
   ssh: group(
     z.object({
