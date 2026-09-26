@@ -21,7 +21,7 @@ export type Module<T> = {
   /** Higher comes first. */
   priority: number
   visible?(data: T, now: Date): boolean
-  effectivePriority?(data: T): number
+  effectivePriority?(data: T, now: Date): number
   render(data: T): JSX.Element
   tap?(effects: Effects): Promise<void>
 } & (

@@ -25,7 +25,7 @@ One self-contained section of the dashboard showing a single topic (weather, usa
 _Avoid_: widget, tile, card
 
 **Priority**:
-A Module's position in the dashboard order. A Module has a base Priority and may raise it while something needs attention (e.g. a train delay).
+A Module's position in the dashboard order. A Module has a base Priority and may raise it while something needs attention (e.g. a train delay), or lower it as its content ages (e.g. last night's sleep).
 _Avoid_: order, rank, weight
 
 **Stale**:

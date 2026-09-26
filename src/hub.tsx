@@ -41,8 +41,9 @@ export const createHub = ({ modules, effects }: HubOptions) => {
   const taps = new Map<string, TapState>()
   let sentLayout = ""
 
-  const priorityOf = (module: Module<unknown>) =>
-    module.effectivePriority?.(store.get(module.id)?.data) ?? module.priority
+  const priorityOf = (module: Module<unknown>, now: Date) =>
+    module.effectivePriority?.(store.get(module.id)?.data, now) ??
+    module.priority
 
   const shownModules = (now = new Date()) =>
     modules
@@ -51,7 +52,7 @@ export const createHub = ({ modules, effects }: HubOptions) => {
           store.has(module.id) &&
           (module.visible?.(store.get(module.id)?.data, now) ?? true),
       )
-      .toSorted((a, b) => priorityOf(b) - priorityOf(a))
+      .toSorted((a, b) => priorityOf(b, now) - priorityOf(a, now))
 
   const renderModule = async (module: Module<unknown>) => {
     const entry = store.get(module.id)

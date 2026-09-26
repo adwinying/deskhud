@@ -1,6 +1,6 @@
 # Compiles on the build platform, cross-targeting the image's arch, so CI never emulates the build.
 # Keep the tag in sync with mise.toml.
-FROM --platform=$BUILDPLATFORM oven/bun:1.3.9-alpine AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.0-alpine AS build
 ARG TARGETARCH
 
 WORKDIR /app

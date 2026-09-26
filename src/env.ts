@@ -41,6 +41,15 @@ export const parseEnv = (env: Env) => ({
   codex: accounts.parse(env.CODEX_AUTHS),
   // Tasks: a TickTick Open API access token
   ticktick: nonEmpty.optional().parse(env.TICKTICK_TOKEN),
+  // Sleep: Google Health API OAuth client and refresh token (scripts/google-health-setup.sh)
+  googleHealth: group(
+    z.object({
+      GOOGLE_HEALTH_CLIENT_ID: nonEmpty,
+      GOOGLE_HEALTH_CLIENT_SECRET: nonEmpty,
+      GOOGLE_HEALTH_REFRESH_TOKEN: nonEmpty,
+    }),
+    env,
+  ),
   // CO2: base URL of the Tasmota device with the SCD40 sensor
   co2: z.url().optional().parse(env.CO2_SENSOR_URL),
   // Tap actions (ADR 0002)

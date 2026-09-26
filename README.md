@@ -36,6 +36,10 @@ CLAUDE_TOKENS=personal:sk-ant-oat01-...,work:sk-ant-oat01-...
 CODEX_AUTHS=personal:/secrets/codex/personal/auth.json,work:/secrets/codex/work/auth.json
 # Tasks: TickTick Open API access token (step 6)
 TICKTICK_TOKEN=...
+# Sleep: Google Health API OAuth client and refresh token (step 7)
+GOOGLE_HEALTH_CLIENT_ID=....apps.googleusercontent.com
+GOOGLE_HEALTH_CLIENT_SECRET=GOCSPX-...
+GOOGLE_HEALTH_REFRESH_TOKEN=1//...
 # CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm
 CO2_SENSOR_URL=http://192.168.5.5
 ```
@@ -144,3 +148,11 @@ The Tasks Module counts TickTick's Today view through the Open API, which needs 
    ```
 
 The response has no refresh token. Once the token expires, the Module goes Stale; repeat steps 2–3.
+
+### 7. Sleep
+
+The Sleep Module reads last night's main sleep and HRV from the Google Health API (ADR 0004). It shows from the morning's sync until the day ends.
+
+Run `scripts/google-health-setup.sh` on the Workstation. It walks through the Cloud project and OAuth client, gets a refresh token and writes the three `GOOGLE_HEALTH_*` values to `.env`. Copy them into `deskhud.env`.
+
+Keep the app **In production** but unverified: in Testing, refresh tokens expire after 7 days. A token unused for 6 months also expires; then re-run the script.

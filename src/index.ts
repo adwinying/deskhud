@@ -6,6 +6,7 @@ import type { Effects } from "@/module"
 import { clock } from "@/modules/clock"
 import { co2 } from "@/modules/co2"
 import { light } from "@/modules/light"
+import { sleep } from "@/modules/sleep"
 import { tasks } from "@/modules/tasks"
 import { trains } from "@/modules/trains"
 import { claudeUsage, codexUsage } from "@/modules/usage"
@@ -68,6 +69,15 @@ const hub = createHub({
     light,
     ...(env.co2 ? [co2(env.co2)] : []),
     ...(env.ticktick ? [tasks(env.ticktick)] : []),
+    ...(env.googleHealth
+      ? [
+          sleep({
+            clientId: env.googleHealth.GOOGLE_HEALTH_CLIENT_ID,
+            clientSecret: env.googleHealth.GOOGLE_HEALTH_CLIENT_SECRET,
+            refreshToken: env.googleHealth.GOOGLE_HEALTH_REFRESH_TOKEN,
+          }),
+        ]
+      : []),
     ...env.claude.map(({ label, value }) => claudeUsage(label, value)),
     ...env.codex.map(({ label, value }) => codexUsage(label, value)),
   ],
