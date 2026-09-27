@@ -46,9 +46,11 @@ const parse = (html: string) => {
   return notices
 }
 
+const url = (id: number) => `https://transit.yahoo.co.jp/diainfo/${id}/0`
+
 // Throws on any markup surprise so the Module goes Stale instead of hiding a delay.
 const scrape = async (line: string, id: number) => {
-  const response = await fetch(`https://transit.yahoo.co.jp/diainfo/${id}/0`, {
+  const response = await fetch(url(id), {
     // A hung request would otherwise stall the schedule without ever going Stale.
     signal: AbortSignal.timeout(30_000),
   })
@@ -66,6 +68,7 @@ const scrape = async (line: string, id: number) => {
   return notices.data
     .filter(({ normal }) => !normal)
     .map(({ status, message }) => ({
+      id,
       line,
       status,
       // Drops the trailing "（9月26日 16時30分掲載）".
@@ -86,10 +89,18 @@ export const trains = defineModule({
     ).flat(),
   visible: (disruptions) => disruptions.length > 0,
   effectivePriority: (disruptions) => (disruptions.length ? 100 : 30),
+  // The action is a diainfo ID; only IDs from `lines` are opened. Tapping outside an entry opens the first.
+  tap: ({ ssh }, disruptions, action) => {
+    const id = action
+      ? Object.values(lines).find((id) => String(id) === action)
+      : disruptions[0]?.id
+    if (!id) throw new Error(`unknown trains action: ${action}`)
+    return ssh.open(url(id))
+  },
   render: (disruptions) => (
     <ul class="flex flex-col gap-3 rounded-xl bg-neutral-900 p-4">
-      {disruptions.map(({ line, status, message }) => (
-        <li>
+      {disruptions.map(({ id, line, status, message }) => (
+        <li data-on:click__stop={`@post('/tap/trains/${id}')`}>
           <p class="flex items-baseline gap-2">
             <span class="font-semibold">{line}</span>
             <span class="rounded bg-amber-400 px-1 text-sm text-black">
