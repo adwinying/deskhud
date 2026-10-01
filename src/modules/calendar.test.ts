@@ -10,8 +10,12 @@ afterEach(() => {
 })
 
 const module = calendar({ clientId: "client", clientSecret: "secret" }, [
-  { label: "personal", refreshToken: "refresh-personal" },
-  { label: "work", refreshToken: "refresh-work" },
+  { label: "personal", refreshToken: "refresh-personal", calendars: [] },
+  {
+    label: "work",
+    refreshToken: "refresh-work",
+    calendars: ["events@group.calendar.google.com"],
+  },
 ])
 
 const event = (summary: string, start: object, attendees?: object[]) => ({
@@ -21,7 +25,7 @@ const event = (summary: string, start: object, attendees?: object[]) => ({
   ...(attendees && { attendees }),
 })
 
-// Each account's access token is its refresh token, so events route by account.
+// Each account's access token is its refresh token, so events route by account and calendar.
 const stubFetch = (calendars: Record<string, object>) =>
   spyOn(globalThis, "fetch").mockImplementation(
     Object.assign(
@@ -33,8 +37,11 @@ const stubFetch = (calendars: Record<string, object>) =>
               "refresh_token",
             ),
           })
-        const token = new Headers(init?.headers).get("authorization")
-        const body = calendars[token?.replace("Bearer ", "") ?? ""]
+        const token = new Headers(init?.headers)
+          .get("authorization")
+          ?.replace("Bearer refresh-", "")
+        const calendar = decodeURIComponent(url.pathname.split("/")[4] ?? "")
+        const body = calendars[`${token}/${calendar}`]
         return body ? Response.json(body) : new Response(null, { status: 401 })
       },
       { preconnect: fetch.preconnect },
@@ -46,17 +53,21 @@ const fetchEvents = () => {
   return module.fetch()
 }
 
-test("merges timed, accepted events across accounts by start", async () => {
+test("merges timed, accepted events across accounts and calendars by start", async () => {
   setSystemTime(new Date("2026-09-27T10:00:00+09:00"))
   stubFetch({
-    "refresh-personal": {
+    "personal/primary": {
       summary: "me@gmail.com",
       items: [
         event("holiday", { date: "2026-09-27" }),
         event("dentist", { dateTime: "2026-09-27T10:45:00+09:00" }),
       ],
     },
-    "refresh-work": {
+    "work/events@group.calendar.google.com": {
+      summary: "Events",
+      items: [event("party", { dateTime: "2026-09-27T10:15:00+09:00" })],
+    },
+    "work/primary": {
       summary: "me@crefil.com",
       items: [
         event("standup", { dateTime: "2026-09-27T09:55:00+09:00" }),
@@ -73,6 +84,11 @@ test("merges timed, accepted events across accounts by start", async () => {
       title: "standup",
       start: Date.parse("2026-09-27T09:55:00+09:00"),
       url: "https://www.google.com/calendar/event?eid=standup&authuser=me%40crefil.com",
+    },
+    {
+      title: "party",
+      start: Date.parse("2026-09-27T10:15:00+09:00"),
+      url: "https://www.google.com/calendar/event?eid=party&authuser=me%40crefil.com",
     },
     {
       title: "dentist",
@@ -113,6 +129,6 @@ test("shows from an hour before the start until 10 minutes after", () => {
 })
 
 test("a failing account fails the fetch", async () => {
-  stubFetch({ "refresh-personal": { summary: "me@gmail.com", items: [] } })
+  stubFetch({ "personal/primary": { summary: "me@gmail.com", items: [] } })
   expect(fetchEvents()).rejects.toThrow("work responded 401")
 })

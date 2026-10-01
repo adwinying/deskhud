@@ -242,7 +242,10 @@ while :; do
     warn "No refresh token in the response:"
     jq 'del(.access_token)' <<<"$tokens"
   else
-    entries+=("$label:$refresh")
+    note "Shared calendars to include (e.g. Events): Settings → the calendar → Integrate calendar → Calendar ID."
+    printf '  %sShared calendar IDs, |-separated (Enter for none):%s ' "$BOLD" "$RESET"
+    read -r shared || true
+    entries+=("$label:$refresh${shared:+|$shared}")
     printf '  %s✓ %s authorized%s\n' "$GREEN" "$label" "$RESET"
     [[ -n "$(jq -r '.refresh_token_expires_in // empty' <<<"$tokens")" ]] &&
       warn "This token expires: the app is still in Testing."

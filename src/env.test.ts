@@ -58,3 +58,21 @@ test("T3 Code environments parse into url and token", () => {
     parseEnv({ T3CODE_ENVIRONMENTS: "mayonaca:https://a.t3coderelay.com" }),
   ).toThrow()
 })
+
+test("Calendar tokens parse shared calendar IDs", () => {
+  expect(
+    parseEnv({
+      GOOGLE_CALENDAR_CLIENT_ID: "client",
+      GOOGLE_CALENDAR_CLIENT_SECRET: "secret",
+      GOOGLE_CALENDAR_TOKENS:
+        "personal:1//a,work:1//b|events@group.calendar.google.com",
+    }).googleCalendar?.GOOGLE_CALENDAR_TOKENS,
+  ).toEqual([
+    { label: "personal", refreshToken: "1//a", calendars: [] },
+    {
+      label: "work",
+      refreshToken: "1//b",
+      calendars: ["events@group.calendar.google.com"],
+    },
+  ])
+})

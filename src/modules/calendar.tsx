@@ -11,7 +11,7 @@ const shown = 3
 
 // All-day events carry `start.date` instead and never show.
 const Events = z.object({
-  // The account's email for its primary calendar.
+  // The calendar's title; the account's email for its primary calendar.
   summary: z.string(),
   items: z.array(
     z.object({
@@ -35,16 +35,12 @@ export type Event = { title: string; start: number; url: string }
 const inWindow = (start: number, now: number) =>
   start - before <= now && now < start + after
 
-type Account = { label: string; refreshToken: string }
+type Account = { label: string; refreshToken: string; calendars: string[] }
 
-const fetchEvents = async (
-  credentials: Omit<Credentials, "refreshToken">,
-  { label, refreshToken }: Account,
-) => {
-  const token = await authorize({ ...credentials, refreshToken })
+const listEvents = async (token: string, calendar: string, label: string) => {
   const now = Date.now()
   const url = new URL(
-    "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar)}/events`,
   )
   url.search = new URLSearchParams({
     // timeMin bounds the end time, timeMax the start time.
@@ -61,19 +57,36 @@ const fetchEvents = async (
   })
   if (!response.ok)
     throw new Error(`Google Calendar ${label} responded ${response.status}`)
-  const { summary: email, items } = Events.parse(await response.json())
-  return items.flatMap(({ summary, htmlLink, start, attendees }) => {
-    const declined = attendees.some(
-      ({ self, responseStatus }) => self && responseStatus === "declined",
-    )
-    if (!start.dateTime || declined) return []
-    const link = new URL(htmlLink)
-    // Without it, the Workstation's browser opens the event in its default Google account.
-    link.searchParams.set("authuser", email)
-    return [
-      { title: summary, start: Date.parse(start.dateTime), url: link.href },
-    ]
-  })
+  return Events.parse(await response.json())
+}
+
+const fetchEvents = async (
+  credentials: Omit<Credentials, "refreshToken">,
+  { label, refreshToken, calendars }: Account,
+) => {
+  const token = await authorize({ ...credentials, refreshToken })
+  const [primary, shared] = await Promise.all([
+    listEvents(token, "primary", label),
+    Promise.all(
+      calendars.map((calendar) => listEvents(token, calendar, label)),
+    ),
+  ])
+  // Only the primary calendar's summary is the account's email.
+  const email = primary.summary
+  return [primary, ...shared].flatMap(({ items }) =>
+    items.flatMap(({ summary, htmlLink, start, attendees }) => {
+      const declined = attendees.some(
+        ({ self, responseStatus }) => self && responseStatus === "declined",
+      )
+      if (!start.dateTime || declined) return []
+      const link = new URL(htmlLink)
+      // Without it, the Workstation's browser opens the event in its default Google account.
+      link.searchParams.set("authuser", email)
+      return [
+        { title: summary, start: Date.parse(start.dateTime), url: link.href },
+      ]
+    }),
+  )
 }
 
 const upcoming = (events: Event[], now: number) =>

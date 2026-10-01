@@ -50,15 +50,19 @@ export const parseEnv = (env: Env) => ({
     }),
     env,
   ),
-  // Calendar: a Google OAuth client and a refresh token per account (scripts/google-calendar-setup.sh)
+  // Calendar: a Google OAuth client and a refresh token per account, then any shared calendar IDs (scripts/google-calendar-setup.sh)
   googleCalendar: group(
     z.object({
       GOOGLE_CALENDAR_CLIENT_ID: nonEmpty,
       GOOGLE_CALENDAR_CLIENT_SECRET: nonEmpty,
-      GOOGLE_CALENDAR_TOKENS: accounts.refine(
-        (entries) => entries.length > 0,
-        "expected label:refreshToken",
-      ),
+      GOOGLE_CALENDAR_TOKENS: accounts
+        .refine((entries) => entries.length > 0, "expected label:refreshToken")
+        .transform((entries) =>
+          entries.map(({ label, value }) => {
+            const [refreshToken = "", ...calendars] = value.split("|")
+            return { label, refreshToken, calendars }
+          }),
+        ),
     }),
     env,
   ),

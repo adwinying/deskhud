@@ -114,9 +114,7 @@ const hub = createHub({
               clientId: env.googleCalendar.GOOGLE_CALENDAR_CLIENT_ID,
               clientSecret: env.googleCalendar.GOOGLE_CALENDAR_CLIENT_SECRET,
             },
-            env.googleCalendar.GOOGLE_CALENDAR_TOKENS.map(
-              ({ label, value }) => ({ label, refreshToken: value }),
-            ),
+            env.googleCalendar.GOOGLE_CALENDAR_TOKENS,
           ),
         ]
       : []),
