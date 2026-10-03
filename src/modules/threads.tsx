@@ -3,24 +3,29 @@ import { z } from "zod"
 import { icon } from "@/icon"
 import { defineModule, type PushSource } from "@/module"
 
-// The fields of T3 Code's OrchestrationThreadShell that decide attention.
+// The fields of T3 Code's OrchestrationV2ThreadShell that decide attention.
 const Thread = z.object({
   id: z.string(),
   title: z.string(),
   archivedAt: z.string().nullable(),
   settledAt: z.string().nullable(),
-  snoozedUntil: z.string().nullable(),
-  pinnedAt: z.string().nullable(),
-  hasPendingApprovals: z.boolean(),
-  hasPendingUserInput: z.boolean(),
+  snoozedUntil: z.string().nullish(),
+  pinnedAt: z.string().nullish(),
+  deletedAt: z.string().nullable(),
+  lineage: z.object({ relationshipToParent: z.string().nullable() }),
+  status: z.string(),
+  activityRunStatus: z.string().nullish(),
+  pendingRuntimeRequest: z.object({ kind: z.string() }).nullable(),
+  pendingBackgroundTasks: z.array(z.object({ kind: z.string() })).default([]),
   hasActionableProposedPlan: z.boolean(),
-  latestTurn: z.object({ state: z.string() }).nullable(),
-  session: z.object({ status: z.string() }).nullable(),
 })
 type Thread = z.infer<typeof Thread>
 
-const Snapshot = z.object({ snapshot: z.object({ threads: z.array(Thread) }) })
-const Upserted = z.object({ thread: Thread })
+const Snapshot = z.object({
+  snapshot: z.object({ threads: z.array(Thread) }),
+  resolvedRepositoryIdentityRoots: z.array(z.string()).optional(),
+})
+const Updated = z.object({ location: z.string(), thread: Thread })
 const Removed = z.object({ threadId: z.string() })
 
 // Effect RPC's JSON protocol, server → client.
@@ -50,27 +55,26 @@ export type Attention = { title: string; reason: Reason }
 const byUrgency = (a: Attention, b: Attention) =>
   urgency.indexOf(a.reason) - urgency.indexOf(b.reason)
 
-// Mirrors T3 Code's agentAwareness phases, limited to threads still in the sidebar's active list.
+// Background work other than shell commands keeps the agent busy past its run.
+const holdsCompletion = ({ kind }: { kind: string }) => kind !== "command"
+
+// Mirrors T3 Code's resolveThreadAwarenessPhaseV2, limited to threads still in the sidebar's active list.
 const reasonOf = (thread: Thread, now: number): Reason | undefined => {
-  if (thread.archivedAt || thread.settledAt) return
+  if (thread.archivedAt || thread.settledAt || thread.deletedAt) return
+  if (thread.lineage.relationshipToParent === "subagent") return
   if (thread.snoozedUntil && Date.parse(thread.snoozedUntil) > now) return
-  if (thread.hasPendingApprovals) return "approval"
-  if (thread.hasPendingUserInput) return "question"
+  const request = thread.pendingRuntimeRequest?.kind
+  if (request === "user_input") return "question"
+  if (request && request !== "auth_refresh") return "approval"
   if (thread.hasActionableProposedPlan) return "plan"
-  if (
-    thread.session?.status === "error" ||
-    thread.latestTurn?.state === "error"
-  )
-    return "error"
-  if (
-    thread.session?.status === "running" ||
-    thread.session?.status === "starting" ||
-    thread.latestTurn?.state === "running"
-  )
-    return
-  // Pinned threads are long-lived; finishing a turn there isn't a call to act.
-  if (thread.pinnedAt) return
-  return "done"
+  switch (thread.activityRunStatus ?? thread.status) {
+    case "failed":
+      return "error"
+    case "completed":
+      if (thread.pendingBackgroundTasks.some(holdsCompletion)) return
+      // Pinned threads are long-lived; finishing a run there isn't a call to act.
+      return thread.pinnedAt ? undefined : "done"
+  }
 }
 
 /** Most urgent first. */
@@ -98,9 +102,11 @@ const watchThreads = (
   source: PushSource<Attention[]>,
 ) => {
   const connect = () => {
-    const socket = new BunWebSocket(`${url.replace(/^http/, "ws")}/ws`, {
-      headers: { authorization: `Bearer ${token}` },
-    })
+    // The server refuses clients that don't ask for its orchestration protocol.
+    const socket = new BunWebSocket(
+      `${url.replace(/^http/, "ws")}/ws?orchestrationProtocol=2`,
+      { headers: { authorization: `Bearer ${token}` } },
+    )
     const threads = new Map<string, Thread>()
     let alive = true
     let dropped = false
@@ -123,17 +129,22 @@ const watchThreads = (
 
     const apply = (event: { kind: string }) => {
       switch (event.kind) {
-        case "snapshot":
+        case "snapshot": {
+          const { snapshot, resolvedRepositoryIdentityRoots } =
+            Snapshot.parse(event)
+          // Project-metadata refreshes carry no threads and must not clear them.
+          if (resolvedRepositoryIdentityRoots) break
           threads.clear()
-          for (const thread of Snapshot.parse(event).snapshot.threads)
-            threads.set(thread.id, thread)
-          break
-        case "thread-upserted": {
-          const { thread } = Upserted.parse(event)
-          threads.set(thread.id, thread)
+          for (const thread of snapshot.threads) threads.set(thread.id, thread)
           break
         }
-        case "thread-removed":
+        case "thread.updated": {
+          const { location, thread } = Updated.parse(event)
+          if (location === "active") threads.set(thread.id, thread)
+          else threads.delete(thread.id)
+          break
+        }
+        case "thread.removed":
           threads.delete(Removed.parse(event).threadId)
       }
     }

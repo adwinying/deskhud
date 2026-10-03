@@ -10,11 +10,13 @@ const thread = (overrides: object) => ({
   settledAt: null,
   snoozedUntil: null,
   pinnedAt: null,
-  hasPendingApprovals: false,
-  hasPendingUserInput: false,
+  deletedAt: null,
+  lineage: { relationshipToParent: null },
+  status: "completed",
+  activityRunStatus: null,
+  pendingRuntimeRequest: null,
+  pendingBackgroundTasks: [],
   hasActionableProposedPlan: false,
-  latestTurn: { state: "completed" },
-  session: { status: "ready" },
   ...overrides,
 })
 
@@ -23,24 +25,43 @@ test("lists unsettled threads that wait on me, most urgent first", () => {
     attention(
       [
         thread({ title: "done" }),
+        thread({ title: "idle", status: "idle" }),
         thread({ title: "pinned done", pinnedAt: "2026-09-26T11:00:00Z" }),
         thread({
           title: "pinned question",
           pinnedAt: "2026-09-26T11:00:00Z",
-          hasPendingUserInput: true,
+          pendingRuntimeRequest: { kind: "user_input" },
         }),
-        thread({ title: "running", session: { status: "running" } }),
-        thread({ title: "approval", hasPendingApprovals: true }),
+        thread({ title: "running", activityRunStatus: "running" }),
+        thread({
+          title: "subagent running",
+          pendingBackgroundTasks: [{ kind: "subagent" }],
+        }),
+        thread({
+          title: "approval",
+          pendingRuntimeRequest: { kind: "command_execution_approval" },
+        }),
+        thread({
+          title: "auth refresh",
+          activityRunStatus: "waiting",
+          pendingRuntimeRequest: { kind: "auth_refresh" },
+        }),
+        thread({ title: "plan", hasActionableProposedPlan: true }),
         thread({ title: "settled", settledAt: "2026-09-26T11:00:00Z" }),
         thread({ title: "archived", archivedAt: "2026-09-26T11:00:00Z" }),
         thread({ title: "snoozed", snoozedUntil: "2026-09-26T13:00:00Z" }),
-        thread({ title: "failed", latestTurn: { state: "error" } }),
+        thread({
+          title: "subagent",
+          lineage: { relationshipToParent: "subagent" },
+        }),
+        thread({ title: "failed", status: "failed" }),
       ],
       now,
     ),
   ).toEqual([
     { title: "approval", reason: "approval" },
     { title: "pinned question", reason: "question" },
+    { title: "plan", reason: "plan" },
     { title: "failed", reason: "error" },
     { title: "done", reason: "done" },
   ])
