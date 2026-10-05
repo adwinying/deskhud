@@ -225,7 +225,7 @@ const account = (
     id: `${name.toLowerCase()}-${label}`,
     span: 2,
     priority: 35,
-    schedule: { every: 5 * 60_000 },
+    schedule: { every: 60_000 },
     fetch,
     render: ({ fiveHour, weekly }) => (
       <div class="flex h-full flex-col justify-center gap-1 rounded-xl bg-neutral-900 p-4">
