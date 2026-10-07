@@ -68,6 +68,8 @@ export const parseEnv = (env: Env) => ({
   ),
   // CO2: base URL of the Tasmota device with the SCD40 sensor
   co2: z.url().optional().parse(env.CO2_SENSOR_URL),
+  // Presence: Fully Kiosk's Remote Admin URL, including its `password` query param
+  kioskAdmin: z.url().optional().parse(env.KIOSK_ADMIN_URL),
   // Threads: each T3 Code environment's URL (e.g. its T3 Connect address) and `t3 auth session issue` token
   t3code: accounts.parse(env.T3CODE_ENVIRONMENTS).map(({ label, value }) => {
     const [url, token] = z

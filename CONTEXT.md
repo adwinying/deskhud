@@ -14,6 +14,10 @@ _Avoid_: backend, server, NAS
 The docked phone running Fully Kiosk Browser that displays the dashboard.
 _Avoid_: client, phone, display
 
+**Presence**:
+Someone at the desk, as detected by the mmWave sensor (via Home Assistant). The Kiosk's screen is on exactly while Presence is detected.
+_Avoid_: occupancy, motion
+
 **Workstation**:
 The Mac (mayonaca) that tap actions run on.
 _Avoid_: this machine, desktop, computer

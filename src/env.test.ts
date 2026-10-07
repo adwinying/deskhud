@@ -13,6 +13,7 @@ test("unset groups leave their feature off", () => {
     googleHealth: undefined,
     googleCalendar: undefined,
     co2: undefined,
+    kioskAdmin: undefined,
     t3code: [],
     ssh: undefined,
   })

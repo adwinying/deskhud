@@ -14,6 +14,7 @@ import { threads } from "@/modules/threads"
 import { trains } from "@/modules/trains"
 import { claudeUsage, codexUsage } from "@/modules/usage"
 import { weather } from "@/modules/weather"
+import { syncPresence } from "@/presence"
 
 const missingHa = new Error("HA_URL and HA_TOKEN must be set")
 const ha: Effects["ha"] = env.ha
@@ -141,6 +142,8 @@ const hub = createHub({
     ha,
   },
 })
+
+if (env.kioskAdmin) syncPresence(ha, env.kioskAdmin)
 
 // Apache Common Log Format with numeric local time: 127.0.0.1 - - [2026-09-26 16:00:00] "GET / HTTP/1.1" 200 1234
 const server = Bun.serve({
