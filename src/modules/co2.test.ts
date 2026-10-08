@@ -10,7 +10,12 @@ test("reads CO2 from the sensor's status 10", async () => {
     Response.json({
       StatusSNS: {
         Time: "1970-08-26T23:36:49",
-        SCD40: { CarbonDioxide: 1234, eCO2: 1200, Temperature: 26.2 },
+        SCD40: {
+          CarbonDioxide: 1234,
+          eCO2: 1200,
+          Temperature: 26.2,
+          Humidity: 52.5,
+        },
         TempUnit: "C",
       },
     }),

@@ -6,6 +6,7 @@ import type { Effects, PushSource } from "@/module"
 import { calendar } from "@/modules/calendar"
 import { clock } from "@/modules/clock"
 import { co2 } from "@/modules/co2"
+import { humidity } from "@/modules/humidity"
 import { light } from "@/modules/light"
 import { media } from "@/modules/media"
 import { sleep } from "@/modules/sleep"
@@ -105,7 +106,7 @@ const hub = createHub({
     weather,
     trains,
     light,
-    ...(env.co2 ? [co2(env.co2)] : []),
+    ...(env.co2 ? [co2(env.co2), humidity(env.co2)] : []),
     ...(env.t3code.length > 0 ? [threads(env.t3code)] : []),
     ...(env.ticktick ? [tasks(env.ticktick)] : []),
     ...(env.googleCalendar

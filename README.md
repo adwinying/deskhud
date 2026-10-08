@@ -44,7 +44,7 @@ GOOGLE_HEALTH_REFRESH_TOKEN=1//...
 GOOGLE_CALENDAR_CLIENT_ID=....apps.googleusercontent.com
 GOOGLE_CALENDAR_CLIENT_SECRET=GOCSPX-...
 GOOGLE_CALENDAR_TOKENS=personal:1//...,work:1//...|c_...@group.calendar.google.com
-# CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm
+# CO2: Tasmota device with an SCD40; a banner tops the dashboard above 1,000ppm, and another below 35% humidity
 CO2_SENSOR_URL=http://192.168.5.5
 # Presence: Fully Kiosk Remote Admin URL with its password; the Kiosk's screen follows HA's
 # binary_sensor.workspace_presence (needs HA_URL and HA_TOKEN)
