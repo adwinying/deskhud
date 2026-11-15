@@ -192,27 +192,31 @@ const watchThreads = (
 type Labeled = Attention & { machine: string }
 
 // Across all environments, so one sleeping machine neither hides the others nor flaps the Stale badge.
-const watchEnvironments = (
+export const watchEnvironments = (
   environments: Environment[],
   source: PushSource<Labeled[]>,
+  watch = watchThreads,
 ) => {
   // A dropped environment keeps its Last known good until it reconnects.
   const lists = new Map<string, Labeled[]>()
   const down = new Set<string>()
   for (const environment of environments)
-    watchThreads(environment, {
+    watch(environment, {
       next: (list) => {
-        down.delete(environment.label)
+        if (down.delete(environment.label))
+          console.log(`T3 Code ${environment.label} reconnected`)
         lists.set(
           environment.label,
           list.map((item) => ({ ...item, machine: environment.label })),
         )
         source.next([...lists.values()].flat().toSorted(byUrgency))
       },
+      // Retries while already down stay quiet: sleep and restarts are routine.
       fail: (error) => {
+        if (down.has(environment.label)) return
         down.add(environment.label)
+        console.error(`T3 Code ${environment.label} failed`, error)
         if (down.size === environments.length) source.fail(error)
-        else console.error(`T3 Code ${environment.label} failed`, error)
       },
     })
 }

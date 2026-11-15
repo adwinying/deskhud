@@ -1,5 +1,8 @@
-import { expect, test } from "bun:test"
-import { attention, threads } from "@/modules/threads"
+import { afterEach, expect, mock, spyOn, test } from "bun:test"
+import type { PushSource } from "@/module"
+import { attention, threads, watchEnvironments } from "@/modules/threads"
+
+afterEach(() => mock.restore())
 
 const now = Date.parse("2026-09-26T12:00:00Z")
 
@@ -75,4 +78,72 @@ test("escapes thread titles", async () => {
     { title: "<b>x</b>", reason: "done", machine: "m" },
   ])
   expect(html).toContain("&lt;b&gt;x&lt;/b&gt;")
+})
+
+// Hands the test each environment's Source, as `watchThreads` would push to it.
+const watched = (...labels: string[]) => {
+  const sources = new Map<string, PushSource<unknown[]>>()
+  const module = { next: mock(), fail: mock() }
+  watchEnvironments(
+    labels.map((label) => ({ label, url: "", token: "" })),
+    module,
+    ({ label }, source) => sources.set(label, source),
+  )
+  const source = (label: string) => {
+    const found = sources.get(label)
+    if (!found) throw new Error(`${label} must be watched`)
+    return found
+  }
+  return { module, source }
+}
+
+const closed = new Error("T3 Code websocket closed (1002)")
+
+test("logs a dropped environment once per outage, not per retry", () => {
+  const error = spyOn(console, "error").mockImplementation(() => {})
+  const log = spyOn(console, "log").mockImplementation(() => {})
+  const { source } = watched("hive", "mayonaca")
+
+  source("hive").next([])
+  for (let retry = 0; retry < 3; retry++) source("hive").fail(closed)
+  expect(error).toHaveBeenCalledTimes(1)
+
+  source("hive").next([])
+  source("hive").next([])
+  expect(log).toHaveBeenCalledTimes(1)
+
+  source("hive").fail(closed)
+  expect(error).toHaveBeenCalledTimes(2)
+})
+
+test("logs an environment that never connected once, then its recovery", () => {
+  const error = spyOn(console, "error").mockImplementation(() => {})
+  const log = spyOn(console, "log").mockImplementation(() => {})
+  const { source } = watched("hive", "mayonaca")
+
+  for (let retry = 0; retry < 3; retry++) source("mayonaca").fail(closed)
+  source("mayonaca").next([])
+  expect(error).toHaveBeenCalledTimes(1)
+  expect(log).toHaveBeenCalledTimes(1)
+})
+
+test("goes Stale once per outage when every environment is down", () => {
+  const error = spyOn(console, "error").mockImplementation(() => {})
+  spyOn(console, "log").mockImplementation(() => {})
+  const { module, source } = watched("hive", "mayonaca")
+  const outage = () => {
+    for (let retry = 0; retry < 3; retry++) {
+      source("hive").fail(closed)
+      source("mayonaca").fail(closed)
+    }
+  }
+
+  outage()
+  expect(module.fail).toHaveBeenCalledTimes(1)
+  // The last environment down still gets its own labeled line.
+  expect(error).toHaveBeenCalledTimes(2)
+
+  source("hive").next([])
+  outage()
+  expect(module.fail).toHaveBeenCalledTimes(2)
 })
